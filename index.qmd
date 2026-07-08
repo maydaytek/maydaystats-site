@@ -1,6 +1,7 @@
 ---
 title: "maydaystats"
 subtitle: "Sports analytics, in public"
+description: "A public sports analytics project covering baseball, hockey, and volleyball. Every post is backed by a real, automated data pipeline - pulling live data into published analysis, with the code and methodology shown alongside the writing."
 listing:
   contents: posts
   type: default
