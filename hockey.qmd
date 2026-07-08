@@ -2,7 +2,7 @@
 title: "Hockey"
 ---
 
-Coming soon — the NHL data pipeline (play-by-play and boxscore data via
+Coming soon. The NHL data pipeline (play-by-play and boxscore data via
 the NHL API, loaded into BigQuery) follows the same pattern as the
 baseball pipeline and hasn't been built yet.
 

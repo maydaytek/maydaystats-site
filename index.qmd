@@ -12,6 +12,6 @@ page-layout: full
 title-block-banner: false
 ---
 
-Data-driven writing on baseball, hockey, and volleyball — pipelines,
+Data-driven writing on baseball, hockey, and volleyball. Pipelines,
 methodology, and analysis, all done in the open. See the [About](about.qmd)
 page for what this project is and why it exists.

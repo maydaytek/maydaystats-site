@@ -9,6 +9,6 @@ listing:
 page-layout: full
 ---
 
-The deeper, more rigorous pieces — as opposed to shorter notes. Every
+The deeper, more rigorous pieces, as opposed to shorter notes. Every
 post tagged **Featured** shows up here; use the category filter above to
 narrow to a specific sport.
