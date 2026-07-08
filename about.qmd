@@ -22,4 +22,3 @@ are both linked from each post.
 - Email: [bradley@maydaystats.com](mailto:bradley@maydaystats.com)
 - GitHub: [maydaytek](https://github.com/maydaytek)
 - LinkedIn: [bradley-may](https://www.linkedin.com/in/bradley-may/)
-- Resume: <!-- link a PDF here -->
