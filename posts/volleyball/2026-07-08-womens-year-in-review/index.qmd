@@ -1,0 +1,165 @@
+---
+title: "Year in Review: The 2025 NCAA Women's Volleyball Season"
+description: "A full fall season of NCAA women's volleyball boxscore data, pulled through the self-hosted NCAA pipeline into BigQuery: Miami's two-way offensive season, Utah Valley's blocking wall, and how Texas A&M swept Kentucky for the national title."
+date: 2026-07-08
+categories: [Volleyball, Women's, Featured, Season Recap]
+---
+
+The women's volleyball pipeline has now pulled a complete season: every
+Division I match from late August through the national championship in
+mid-December, backfilled game by game into BigQuery via the same
+self-hosted NCAA API proxy behind the men's pipeline. This post is the
+first real analysis built on top of it.
+
+One note on the data: a much smaller share of rows here (well under 1%)
+carry a blank player name, the same kind of NCAA-side gap described in
+the men's post, not a pipeline bug.
+
+## Querying the season
+
+```{python}
+#| label: fetch-kills-leaders
+#| echo: true
+from google.cloud import bigquery
+
+client = bigquery.Client()
+
+query = """
+SELECT
+  player_name,
+  team,
+  SUM(CAST(kills AS INT64)) AS kills,
+  SUM(CAST(attack_attempts AS INT64)) AS attempts,
+  SAFE_DIVIDE(
+    SUM(CAST(kills AS INT64)) - SUM(CAST(attack_errors AS INT64)),
+    SUM(CAST(attack_attempts AS INT64))
+  ) AS hitting_pct,
+  COUNT(DISTINCT game_id) AS games
+FROM `maydaystats.ncaa_volleyball_women.boxscores`
+WHERE player_name != ''
+GROUP BY player_name, team
+HAVING attempts >= 200
+ORDER BY kills DESC
+LIMIT 10
+"""
+
+leaders = client.query(query).to_dataframe()
+leaders
+```
+
+`{python} leaders.iloc[0]['player_name']` of
+`{python} leaders.iloc[0]['team']` led the country with
+`{python} int(leaders.iloc[0]['kills'])` kills across
+`{python} int(leaders.iloc[0]['games'])` matches. Miami shows up twice in
+the national leaderboards this season: the same team that produced the
+kills leader also produced the national leader in aces, a rare two-way
+offensive season for one program.
+
+## The top ten, by kills
+
+```{python}
+#| label: fig-top-kills
+#| fig-cap: "Top 10 kills leaders, 2025 NCAA D1 women's season (min. 200 attempts)"
+import matplotlib.pyplot as plt
+
+fig, ax = plt.subplots(figsize=(9, 5))
+labels = leaders["player_name"] + " (" + leaders["team"] + ")"
+ax.barh(labels[::-1], leaders["kills"][::-1], color="#2c3e50")
+ax.set_xlabel("Kills")
+ax.set_title("Top 10 Kills Leaders, 2025 Women's Season")
+ax.spines[["top", "right"]].set_visible(False)
+plt.tight_layout()
+plt.show()
+```
+
+## Digs, blocks, and aces
+
+```{python}
+#| label: fetch-other-leaders
+#| echo: true
+digs_query = """
+SELECT player_name, team, SUM(CAST(digs AS INT64)) AS total
+FROM `maydaystats.ncaa_volleyball_women.boxscores`
+WHERE player_name != ''
+GROUP BY player_name, team
+ORDER BY total DESC
+LIMIT 1
+"""
+digs_leader = client.query(digs_query).to_dataframe()
+
+blocks_query = """
+SELECT player_name, team, SUM(CAST(total_blocks AS FLOAT64)) AS total
+FROM `maydaystats.ncaa_volleyball_women.boxscores`
+WHERE player_name != ''
+GROUP BY player_name, team
+ORDER BY total DESC
+LIMIT 1
+"""
+blocks_leader = client.query(blocks_query).to_dataframe()
+
+aces_query = """
+SELECT player_name, team, SUM(CAST(service_aces AS INT64)) AS total
+FROM `maydaystats.ncaa_volleyball_women.boxscores`
+WHERE player_name != ''
+GROUP BY player_name, team
+ORDER BY total DESC
+LIMIT 1
+"""
+aces_leader = client.query(aces_query).to_dataframe()
+```
+
+`{python} digs_leader.iloc[0]['player_name']` (`{python} digs_leader.iloc[0]['team']`)
+led all players in digs with `{python} int(digs_leader.iloc[0]['total'])`.
+`{python} blocks_leader.iloc[0]['player_name']` of Utah Valley led the
+country in blocks with `{python} int(blocks_leader.iloc[0]['total'])`, part
+of a team effort that led the nation in team blocking as well. And
+`{python} aces_leader.iloc[0]['player_name']` (`{python} aces_leader.iloc[0]['team']`)
+topped the ace leaderboard with `{python} int(aces_leader.iloc[0]['total'])`,
+the same program that produced the season's kills leader.
+
+## The championship: Texas A&M sweeps Kentucky
+
+```{python}
+#| label: fetch-final
+#| echo: true
+final_query = """
+SELECT player_name, team, kills, attack_attempts, hitting_percentage, digs
+FROM `maydaystats.ncaa_volleyball_women.boxscores`
+WHERE game_id = '6500718'
+  AND CAST(kills AS INT64) > 0
+ORDER BY team, CAST(kills AS INT64) DESC
+"""
+final_box = client.query(final_query).to_dataframe()
+final_box
+```
+
+Texas A&M swept Kentucky 3-0 on December 21, 2025 to win the national
+championship. Logan Lednicky led the Aggies with 11 kills on a .250
+hitting percentage, with Kyndal Stowers adding 10 more on .304 hitting,
+a balanced attack across multiple hitters rather than one player
+carrying the offense.
+
+Kentucky's Eva Hudson, who finished among the national top ten in kills
+for the season, led all players in the match with 13 kills, but needed
+45 attempts to get there, a .200 hitting percentage. By far the highest
+attempt count on the floor, it meant Kentucky's offense ran through one
+hitter without the efficiency to match the volume, the same pattern that
+showed up in the men's final two days apart on the calendar year.
+
+## What's next
+
+This covers the season at a high level: the national leaderboards and
+the championship match itself. The same table supports much narrower
+questions too, like how a team's blocking efficiency changed after a
+lineup shift, or a transfer's production before and after switching
+programs. Those are posts for another day, now that a full season of
+clean data is sitting in BigQuery.
+
+The pipeline code behind this post [lives here](https://github.com/maydaytek/maydaystats-pipelines).
+
+::: {.callout-note}
+Like the baseball, hockey, and men's volleyball posts, this one uses
+Quarto's frozen execution (`freeze: true`): the queries above ran once,
+locally, against BigQuery, and the deployed site reuses that committed
+output rather than re-querying on every build.
+:::

@@ -2,7 +2,7 @@
 title: "First Pitches: Standing Up the Statcast Pipeline"
 description: "Proving the pipeline end-to-end - from Cloud Run to BigQuery to this chart."
 date: 2026-07-08
-categories: [Baseball, Featured, Pipeline]
+categories: [Baseball, Pipeline]
 ---
 
 This is the first post through the full pipeline: a Cloud Run Job pulls

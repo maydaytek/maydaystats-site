@@ -5,10 +5,12 @@ title: "About"
 ## What this is
 
 maydaystats is a public sports analytics project covering baseball,
-hockey, and volleyball. Every post here starts from a real data pipeline:
+hockey, and volleyball. Most posts here start from a real data pipeline:
 pulling from public sources like MLB Statcast and the NHL API, loading
 into BigQuery, and analyzing from there. The code behind each piece
-is public along with the writing itself.
+is public along with the writing itself. The occasional exception, like
+academic coursework analysis on a static dataset, says so explicitly in
+the post rather than blending in with the pipeline-backed work.
 
 ## Why it exists
 

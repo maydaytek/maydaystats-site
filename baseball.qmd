@@ -8,5 +8,7 @@ listing:
 page-layout: full
 ---
 
-MLB analysis, sourced from Statcast pitch-level data via a daily
-automated pipeline into BigQuery.
+MLB analysis. Most posts here are sourced from Statcast pitch-level data
+via a daily automated pipeline into BigQuery; any post that draws on a
+different data source, like a static academic dataset, says so
+explicitly.

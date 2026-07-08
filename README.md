@@ -1,7 +1,8 @@
 # maydaystats.com
 
 The Quarto source for the maydaystats site: baseball, hockey, and
-volleyball analytics, each post backed by a real data pipeline.
+volleyball analytics, most posts backed by a real data pipeline (any
+exception says so explicitly in the post itself).
 
 ## Local setup
 
@@ -30,8 +31,15 @@ volleyball analytics, each post backed by a real data pipeline.
 Create a new folder under `posts/<sport>/<date>-<slug>/index.qmd`. Copy
 the frontmatter shape from `posts/baseball/2026-07-08-first-pitches/index.qmd`
 - `categories:` should include the sport, and `Featured` for flagship
-deep-dives (this is what makes a post show up on the Featured Research
-page).
+deep-dives, for documentation and filtering purposes.
+
+Note that the `Featured` category tag alone does **not** put a post on
+the Featured Research page. `research.qmd`'s listing uses an explicit
+`contents:` list of post paths rather than a category filter, because
+Quarto's listing `categories: true` only adds a clickable filter widget,
+it doesn't restrict the default view to a given tag. To actually feature
+a new post, add its path to the `listing: contents:` list in
+`research.qmd` as well as tagging it `Featured`.
 
 ## Rendering and the freeze workflow
 

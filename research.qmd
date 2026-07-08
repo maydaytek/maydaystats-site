@@ -1,7 +1,11 @@
 ---
 title: "Featured Research"
 listing:
-  contents: posts
+  contents:
+    - posts/hockey/2026-07-08-year-in-review/index.qmd
+    - posts/volleyball/2026-07-08-mens-year-in-review/index.qmd
+    - posts/volleyball/2026-07-08-womens-year-in-review/index.qmd
+    - posts/baseball/2026-06-16-purdue-grad505-pitch-analytics/index.qmd
   type: default
   sort: "date desc"
   categories: true
@@ -9,6 +13,15 @@ listing:
 page-layout: full
 ---
 
-The deeper, more rigorous pieces, as opposed to shorter notes. Every
-post tagged **Featured** shows up here; use the category filter above to
-narrow to a specific sport.
+The deeper, more rigorous pieces, as opposed to shorter notes. Each
+entry is added here by hand, not by a category tag alone, use the
+category filter above to narrow to a specific sport.
+
+::: {.callout-note}
+This page lists specific posts explicitly rather than filtering by the
+`Featured` category tag automatically. Quarto's listing `categories`
+option only renders a clickable filter widget, it doesn't restrict the
+default view to a given tag, so a tag-based approach here would have
+kept showing every post site-wide by default. Adding a new post here
+means adding its path to this list.
+:::

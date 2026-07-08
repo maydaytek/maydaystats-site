@@ -1,0 +1,164 @@
+---
+title: "Year in Review: The 2025-26 NCAA Men's Volleyball Season"
+description: "A full spring season of NCAA men's volleyball boxscore data, pulled through the self-hosted NCAA pipeline into BigQuery: the kills leaders, and how Hawaii beat UC Irvine for the national title."
+date: 2026-07-08
+categories: [Volleyball, Men's, Featured, Season Recap]
+---
+
+The men's volleyball pipeline has now pulled a complete season: every
+Division I match from January through the national championship in
+early May, backfilled game by game into BigQuery via the self-hosted
+NCAA API proxy. This post is the first real analysis built on top of it.
+
+One note on the data: about 6% of rows carry a blank player name despite
+having real stat values, a gap on NCAA's own side for a small number of
+games rather than a pipeline bug (see the pipeline's `DEPLOY.md` for the
+full explanation). Everything below filters those rows out.
+
+## Querying the season
+
+```{python}
+#| label: fetch-kills-leaders
+#| echo: true
+from google.cloud import bigquery
+
+client = bigquery.Client()
+
+query = """
+SELECT
+  player_name,
+  team,
+  SUM(CAST(kills AS INT64)) AS kills,
+  SUM(CAST(attack_attempts AS INT64)) AS attempts,
+  SAFE_DIVIDE(
+    SUM(CAST(kills AS INT64)) - SUM(CAST(attack_errors AS INT64)),
+    SUM(CAST(attack_attempts AS INT64))
+  ) AS hitting_pct,
+  COUNT(DISTINCT game_id) AS games
+FROM `maydaystats.ncaa_volleyball_men.boxscores`
+WHERE player_name != ''
+GROUP BY player_name, team
+HAVING attempts >= 200
+ORDER BY kills DESC
+LIMIT 10
+"""
+
+leaders = client.query(query).to_dataframe()
+leaders
+```
+
+`{python} leaders.iloc[0]['player_name']` of
+`{python} leaders.iloc[0]['team']` led the country with
+`{python} int(leaders.iloc[0]['kills'])` kills, on a
+`{python} f"{leaders.iloc[0]['hitting_pct']:.3f}"` hitting percentage
+across `{python} int(leaders.iloc[0]['games'])` matches. UC Irvine's
+Andrej Jokanovic finished a close second in raw kills, but needed nearly
+60 more swings to get there, a volume-over-efficiency trade that shows
+up again later in his team's championship match.
+
+## The top ten, by kills
+
+```{python}
+#| label: fig-top-kills
+#| fig-cap: "Top 10 kills leaders, 2025-26 NCAA D1 men's season (min. 200 attempts)"
+import matplotlib.pyplot as plt
+
+fig, ax = plt.subplots(figsize=(9, 5))
+labels = leaders["player_name"] + " (" + leaders["team"] + ")"
+ax.barh(labels[::-1], leaders["kills"][::-1], color="#2c3e50")
+ax.set_xlabel("Kills")
+ax.set_title("Top 10 Kills Leaders, 2025-26 Men's Season")
+ax.spines[["top", "right"]].set_visible(False)
+plt.tight_layout()
+plt.show()
+```
+
+## Digs, blocks, and aces
+
+```{python}
+#| label: fetch-other-leaders
+#| echo: true
+digs_query = """
+SELECT player_name, team, SUM(CAST(digs AS INT64)) AS total
+FROM `maydaystats.ncaa_volleyball_men.boxscores`
+WHERE player_name != ''
+GROUP BY player_name, team
+ORDER BY total DESC
+LIMIT 1
+"""
+digs_leader = client.query(digs_query).to_dataframe()
+
+blocks_query = """
+SELECT player_name, team, SUM(CAST(total_blocks AS FLOAT64)) AS total
+FROM `maydaystats.ncaa_volleyball_men.boxscores`
+WHERE player_name != ''
+GROUP BY player_name, team
+ORDER BY total DESC
+LIMIT 1
+"""
+blocks_leader = client.query(blocks_query).to_dataframe()
+
+aces_query = """
+SELECT player_name, team, SUM(CAST(service_aces AS INT64)) AS total
+FROM `maydaystats.ncaa_volleyball_men.boxscores`
+WHERE player_name != ''
+GROUP BY player_name, team
+ORDER BY total DESC
+LIMIT 1
+"""
+aces_leader = client.query(aces_query).to_dataframe()
+```
+
+`{python} digs_leader.iloc[0]['player_name']` (`{python} digs_leader.iloc[0]['team']`)
+led all players in digs with `{python} int(digs_leader.iloc[0]['total'])`.
+`{python} blocks_leader.iloc[0]['player_name']` (`{python} blocks_leader.iloc[0]['team']`)
+topped the block chart with `{python} int(blocks_leader.iloc[0]['total'])`, well
+clear of the field. And `{python} aces_leader.iloc[0]['player_name']`
+(`{python} aces_leader.iloc[0]['team']`) led in aces with
+`{python} int(aces_leader.iloc[0]['total'])`.
+
+## The championship: Hawaii over UC Irvine
+
+```{python}
+#| label: fetch-final
+#| echo: true
+final_query = """
+SELECT player_name, team, kills, attack_attempts, hitting_percentage, total_blocks
+FROM `maydaystats.ncaa_volleyball_men.boxscores`
+WHERE game_id = '6598557'
+  AND CAST(kills AS INT64) > 0
+ORDER BY team, CAST(kills AS INT64) DESC
+"""
+final_box = client.query(final_query).to_dataframe()
+final_box
+```
+
+Hawaii beat UC Irvine 3-1 on May 11, 2026 to win the national
+championship, the program's first title since 2021. Kristian Titriyski
+led the way with 16 kills on a .387 hitting percentage, with Adrien
+Roure adding 15 more. Louis Sakanoko was the most efficient hitter on
+the floor, going 12-for-20 (.500) with 3 blocks off the bench.
+
+UC Irvine's offense leaned almost entirely on Andrej Jokanovic, the same
+volume hitter who finished second nationally in kills for the season. He
+had a team-high 13 kills in the final, but needed 35 attempts to get
+there, a .229 hitting percentage that never let UC Irvine pull away the
+way Hawaii's more balanced, more efficient attack did.
+
+## What's next
+
+This covers the season at a high level: the national leaderboards and
+the championship match itself. The same table supports much narrower
+questions too, like a single team's hitting efficiency by conference
+opponent, or how a freshman's role grew over the season. Those are posts
+for another day, now that a full season of clean data is sitting in
+BigQuery.
+
+The pipeline code behind this post [lives here](https://github.com/maydaytek/maydaystats-pipelines).
+
+::: {.callout-note}
+Like the baseball and hockey posts, this one uses Quarto's frozen
+execution (`freeze: true`): the queries above ran once, locally, against
+BigQuery, and the deployed site reuses that committed output rather than
+re-querying on every build.
+:::
