@@ -45,18 +45,29 @@ format:
     grid:
       body-width: 850px
 
-# Frozen execution: code chunks are only re-run when their source changes.
-# This means the deploy build (Cloudflare Pages) never needs GCP credentials
-# or Python data dependencies installed - it just reuses the committed
-# _freeze/ outputs. Always render locally before pushing so _freeze/ is
-# up to date. See DEPLOY.md for the full reasoning.
+# Frozen execution: freeze: auto re-runs a document's code only when its
+# own source has actually changed since the last local render (Quarto
+# tracks this itself, not by file timestamp, so a fresh git checkout
+# doesn't fool it into re-running everything). Unchanged documents keep
+# reusing their committed _freeze/ output. This means the deploy build
+# (Cloudflare Pages) never needs GCP credentials or Python data
+# dependencies installed for posts that haven't changed. Always render
+# locally before pushing so _freeze/ is up to date. See DEPLOY.md for the
+# full reasoning.
+#
+# Note: freeze: true (the previous setting here) means "never re-render
+# during a project render, full stop" - it does NOT check whether the
+# source changed. That silently kept serving stale output after editing
+# an existing post's code, until the affected _freeze/ subfolder was
+# deleted by hand. freeze: auto is the setting that actually behaves the
+# way the comment above (and everyone's intuition) expects.
 #
 # warning: false - suppresses captured Python warning output from being
 # baked into rendered pages. Library warnings (deprecation notices, etc.)
 # can include local file paths, which have no business being on a public
 # post. Applies project-wide so no individual chunk has to remember it.
 execute:
-  freeze: true
+  freeze: auto
   warning: false
 
 jupyter: python3
