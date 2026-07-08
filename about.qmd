@@ -1,0 +1,25 @@
+---
+title: "About"
+---
+
+## What this is
+
+maydaystats is a public sports analytics project covering baseball,
+hockey, and volleyball. Every post here starts from a real data pipeline
+— pulling from public sources like MLB Statcast and the NHL API, loading
+into BigQuery, and analyzing from there — and the code behind each piece
+is public along with the writing itself.
+
+## Why it exists
+
+I'm building this in the open as a working portfolio: real questions,
+real data, real pipelines, published on a regular cadence. If you want
+to see how a given number was produced, the pipeline and analysis code
+are both linked from each post.
+
+## Get in touch
+
+- Email: [bradley@maydaystats.com](mailto:bradley@maydaystats.com)
+- GitHub: [maydaytek](https://github.com/maydaytek)
+- LinkedIn: [bradley-may](https://www.linkedin.com/in/bradley-may/)
+- Resume: <!-- link a PDF here -->

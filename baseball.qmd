@@ -1,0 +1,12 @@
+---
+title: "Baseball"
+listing:
+  contents: posts/baseball
+  type: default
+  sort: "date desc"
+  categories: true
+page-layout: full
+---
+
+MLB analysis, sourced from Statcast pitch-level data via a daily
+automated pipeline into BigQuery.

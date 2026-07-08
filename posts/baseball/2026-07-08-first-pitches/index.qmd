@@ -1,0 +1,78 @@
+---
+title: "First Pitches: Standing Up the Statcast Pipeline"
+description: "Proving the pipeline end-to-end - from Cloud Run to BigQuery to this chart."
+date: 2026-07-08
+categories: [Baseball, Featured, Pipeline]
+---
+
+This is the first post through the full pipeline: a Cloud Run Job pulls
+pitch-level Statcast data daily and appends it to BigQuery, and this
+page reads straight from that table and renders a chart. Nothing here
+is a deep analytical claim yet - the point of this post is narrower and
+more important than that: confirming that data really does flow from
+the source all the way to a published page, with no manual step in
+between.
+
+## Querying the pipeline's output
+
+```{python}
+#| label: fetch-data
+#| echo: true
+from google.cloud import bigquery
+
+client = bigquery.Client()
+
+query = """
+SELECT
+  pitch_type,
+  COUNT(*) AS n_pitches,
+  AVG(release_speed) AS avg_release_speed,
+  AVG(release_spin_rate) AS avg_spin_rate
+FROM `maydaystats.mlb_statcast.pitches`
+WHERE pitch_type IS NOT NULL
+GROUP BY pitch_type
+ORDER BY n_pitches DESC
+"""
+
+df = client.query(query).to_dataframe()
+df
+```
+
+As of this post, the table holds `{python} int(df['n_pitches'].sum())`
+pitches across `{python} df.shape[0]` distinct pitch types.
+
+## Average release speed by pitch type
+
+```{python}
+#| label: fig-velocity-by-pitch-type
+#| fig-cap: "Average release speed by pitch type, all games loaded so far"
+import matplotlib.pyplot as plt
+
+fig, ax = plt.subplots(figsize=(8, 5))
+ax.bar(df["pitch_type"], df["avg_release_speed"], color="#2c3e50")
+ax.set_xlabel("Pitch type")
+ax.set_ylabel("Average release speed (mph)")
+ax.set_title("Average Release Speed by Pitch Type")
+ax.spines[["top", "right"]].set_visible(False)
+plt.tight_layout()
+plt.show()
+```
+
+## What this confirms, and what's next
+
+Every number and every bar above came from a live query against
+`mlb_statcast.pitches`, which itself only exists because a Cloud
+Scheduler job triggers a Cloud Run Job every morning that pulls the
+previous day's Statcast data. As more days accumulate, this same query
+pattern (and others like it) becomes the basis for real analysis rather
+than pipeline validation.
+
+The pipeline code behind this post [lives here](https://github.com/maydaytek/maydaystats-pipelines).
+
+::: {.callout-note}
+This post uses Quarto's frozen execution (`freeze: true`): the code
+above only re-runs when I re-render locally with fresh BigQuery access.
+The deployed site reuses that committed output rather than re-querying
+BigQuery on every build, which is what lets Cloudflare Pages build this
+site without needing my GCP credentials.
+:::

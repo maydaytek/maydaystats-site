@@ -1,0 +1,17 @@
+# Build output - Cloudflare Pages regenerates this; don't commit it
+_site/
+.quarto/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
+
+# NOTE: _freeze/ is intentionally NOT ignored - it must be committed,
+# see README.md and DEPLOY.md for why.
+
+/.quarto/
+**/*.quarto_ipynb

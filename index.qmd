@@ -1,0 +1,16 @@
+---
+title: "maydaystats"
+subtitle: "Sports analytics, in public"
+listing:
+  contents: posts
+  type: default
+  sort: "date desc"
+  categories: true
+  feed: true
+page-layout: full
+title-block-banner: false
+---
+
+Data-driven writing on baseball, hockey, and volleyball — pipelines,
+methodology, and analysis, all done in the open. See the [About](about.qmd)
+page for what this project is and why it exists.

@@ -1,0 +1,10 @@
+/* Minimal tweaks on top of the Cosmo theme - placeholder for a real
+   visual identity once there's content to justify one. */
+
+body {
+  line-height: 1.6;
+}
+
+.quarto-title-banner {
+  margin-bottom: 1rem;
+}

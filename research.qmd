@@ -1,0 +1,14 @@
+---
+title: "Featured Research"
+listing:
+  contents: posts
+  type: default
+  sort: "date desc"
+  categories: true
+  filter-ui: true
+page-layout: full
+---
+
+The deeper, more rigorous pieces — as opposed to shorter notes. Every
+post tagged **Featured** shows up here; use the category filter above to
+narrow to a specific sport.

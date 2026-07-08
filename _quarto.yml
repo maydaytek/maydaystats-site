@@ -1,0 +1,54 @@
+project:
+  type: website
+  output-dir: _site
+  render:
+    - "*.qmd"
+    - "*.md"
+    - "posts/**"
+    - "!README.md"
+    - "!DEPLOY.md"
+
+website:
+  title: "maydaystats"
+  description: "Sports analytics: baseball, hockey, and volleyball"
+  site-url: "https://maydaystats.com"
+  navbar:
+    left:
+      - href: index.qmd
+        text: Home
+      - href: baseball.qmd
+        text: Baseball
+      - href: hockey.qmd
+        text: Hockey
+      - href: volleyball.qmd
+        text: Volleyball
+      - href: research.qmd
+        text: Featured Research
+      - href: about.qmd
+        text: About
+    right:
+      - icon: github
+        href: https://github.com/maydaytek
+        aria-label: GitHub
+  page-footer:
+    left: "© 2026 Bradley May"
+    right: "Built with [Quarto](https://quarto.org)"
+  open-graph: true
+
+format:
+  html:
+    theme: cosmo
+    css: styles.css
+    toc: false
+    grid:
+      body-width: 850px
+
+# Frozen execution: code chunks are only re-run when their source changes.
+# This means the deploy build (Cloudflare Pages) never needs GCP credentials
+# or Python data dependencies installed - it just reuses the committed
+# _freeze/ outputs. Always render locally before pushing so _freeze/ is
+# up to date. See DEPLOY.md for the full reasoning.
+execute:
+  freeze: true
+
+jupyter: python3
