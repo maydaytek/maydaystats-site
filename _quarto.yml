@@ -34,6 +34,7 @@ website:
     left: "© 2026 Bradley May"
     right: "Built with [Quarto](https://quarto.org)"
   open-graph: true
+  image: "images/og-default.png"
 
 format:
   html:
