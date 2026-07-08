@@ -39,22 +39,28 @@ Build settings:
 - **Framework preset:** None
 - **Build command:**
   ```bash
-  curl -LO https://github.com/quarto-dev/quarto-cli/releases/download/v1.6.39/quarto-1.6.39-linux-amd64.tar.gz
-  tar -xzf quarto-1.6.39-linux-amd64.tar.gz
-  export PATH="$PWD/quarto-1.6.39/bin:$PATH"
-  quarto render
+  curl -LO https://github.com/quarto-dev/quarto-cli/releases/download/v1.6.39/quarto-1.6.39-linux-amd64.tar.gz && mkdir -p /tmp/quarto-install && tar -xzf quarto-1.6.39-linux-amd64.tar.gz -C /tmp/quarto-install && export PATH="/tmp/quarto-install/quarto-1.6.39/bin:$PATH" && quarto render
   ```
 - **Build output directory:** `_site`
 
 That build command downloads Quarto's portable (no-install-needed)
-distribution directly into the build container and puts it on PATH,
-then renders. Because `freeze: true` is set, this render reuses the
-`_freeze/` output committed in step 1 instead of re-executing any
-Python or querying BigQuery - so this build has no Python, no
-`requirements.txt`, and no GCP credentials to worry about. If you add a
-new post without rendering locally first, this step will fail (nothing
-frozen to fall back on), which is your signal to go back and run
-`quarto render` locally before pushing.
+distribution and extracts it to `/tmp/quarto-install` - deliberately
+*outside* the repo/project directory. Extracting it into the project
+directory itself (e.g. with a bare `tar -xzf ... .`) pollutes the
+project tree with Quarto's own bundled example templates, and
+`quarto render` will try to render those as if they were your content
+and fail with an "Invalid Shortcode" error. Keeping the Quarto install
+out of the project directory avoids that entirely.
+
+Because `freeze: true` is set, this render reuses the `_freeze/`
+output committed in step 1 instead of re-executing any Python or
+querying BigQuery - so this build needs no GCP credentials. Note:
+Cloudflare Pages auto-detects `requirements.txt` at the repo root and
+will `pip install` it regardless, even though frozen renders don't
+need it - this costs a bit of build time but doesn't affect
+correctness. If you add a new post without rendering locally first,
+the render step will fail (nothing frozen to fall back on), which is
+your signal to go back and run `quarto render` locally before pushing.
 
 ## 4. Point the domain at it
 
