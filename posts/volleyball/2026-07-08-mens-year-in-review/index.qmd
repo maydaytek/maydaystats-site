@@ -24,6 +24,30 @@ from google.cloud import bigquery
 
 client = bigquery.Client()
 
+# NCAA's API returns team as its own 6-character code (e.g. "PEPPER"), not
+# a school name. Mapped here for readability; a code not in this dict
+# falls back to showing the raw abbreviation rather than failing, in case
+# a future re-render surfaces a school not covered yet.
+TEAM_NAMES = {
+    "PEPPER": "Pepperdine",
+    "UC IRV": "UC Irvine",
+    "BALLST": "Ball State",
+    "CATAWB": "Catawba",
+    "PENNST": "Penn State",
+    "MCKEND": "McKendree",
+    "EMMAN": "Emmanuel (Ga.)",
+    "LEWIS": "Lewis",
+    "HAWAII": "Hawaii",
+    "UCLA": "UCLA",
+    "USC": "USC",
+}
+
+
+def resolve_team(df):
+    df["team"] = df["team"].map(lambda code: TEAM_NAMES.get(code, code))
+    return df
+
+
 query = """
 SELECT
   player_name,
@@ -43,7 +67,7 @@ ORDER BY kills DESC
 LIMIT 10
 """
 
-leaders = client.query(query).to_dataframe()
+leaders = resolve_team(client.query(query).to_dataframe())
 leaders
 ```
 
@@ -86,7 +110,7 @@ GROUP BY player_name, team
 ORDER BY total DESC
 LIMIT 1
 """
-digs_leader = client.query(digs_query).to_dataframe()
+digs_leader = resolve_team(client.query(digs_query).to_dataframe())
 
 blocks_query = """
 SELECT player_name, team, SUM(CAST(total_blocks AS FLOAT64)) AS total
@@ -96,7 +120,7 @@ GROUP BY player_name, team
 ORDER BY total DESC
 LIMIT 1
 """
-blocks_leader = client.query(blocks_query).to_dataframe()
+blocks_leader = resolve_team(client.query(blocks_query).to_dataframe())
 
 aces_query = """
 SELECT player_name, team, SUM(CAST(service_aces AS INT64)) AS total
@@ -106,7 +130,7 @@ GROUP BY player_name, team
 ORDER BY total DESC
 LIMIT 1
 """
-aces_leader = client.query(aces_query).to_dataframe()
+aces_leader = resolve_team(client.query(aces_query).to_dataframe())
 ```
 
 `{python} digs_leader.iloc[0]['player_name']` (`{python} digs_leader.iloc[0]['team']`)
@@ -129,7 +153,7 @@ WHERE game_id = '6598557'
   AND CAST(kills AS INT64) > 0
 ORDER BY team, CAST(kills AS INT64) DESC
 """
-final_box = client.query(final_query).to_dataframe()
+final_box = resolve_team(client.query(final_query).to_dataframe())
 final_box
 ```
 
