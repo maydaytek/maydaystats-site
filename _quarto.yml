@@ -48,7 +48,13 @@ format:
 # or Python data dependencies installed - it just reuses the committed
 # _freeze/ outputs. Always render locally before pushing so _freeze/ is
 # up to date. See DEPLOY.md for the full reasoning.
+#
+# warning: false - suppresses captured Python warning output from being
+# baked into rendered pages. Library warnings (deprecation notices, etc.)
+# can include local file paths, which have no business being on a public
+# post. Applies project-wide so no individual chunk has to remember it.
 execute:
   freeze: true
+  warning: false
 
 jupyter: python3
