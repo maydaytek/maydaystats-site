@@ -25,9 +25,11 @@ from google.cloud import bigquery
 client = bigquery.Client()
 
 # NCAA's API returns team as its own 6-character code (e.g. "PEPPER"), not
-# a school name. Mapped here for readability; a code not in this dict
-# falls back to showing the raw abbreviation rather than failing, in case
-# a future re-render surfaces a school not covered yet.
+# a school name. Tables and charts below keep the raw code as-is (matches
+# how the hockey post's chart also uses raw team codes); this mapping is
+# only used to spell out real school names in the prose. A code not in
+# this dict falls back to showing the raw abbreviation rather than
+# failing, in case a future re-render surfaces a school not covered yet.
 TEAM_NAMES = {
     "PEPPER": "Pepperdine",
     "UC IRV": "UC Irvine",
@@ -43,9 +45,8 @@ TEAM_NAMES = {
 }
 
 
-def resolve_team(df):
-    df["team"] = df["team"].map(lambda code: TEAM_NAMES.get(code, code))
-    return df
+def team_name(code):
+    return TEAM_NAMES.get(code, code)
 
 
 query = """
@@ -67,12 +68,12 @@ ORDER BY kills DESC
 LIMIT 10
 """
 
-leaders = resolve_team(client.query(query).to_dataframe())
+leaders = client.query(query).to_dataframe()
 leaders
 ```
 
 `{python} leaders.iloc[0]['player_name']` of
-`{python} leaders.iloc[0]['team']` led the country with
+`{python} team_name(leaders.iloc[0]['team'])` led the country with
 `{python} int(leaders.iloc[0]['kills'])` kills, on a
 `{python} f"{leaders.iloc[0]['hitting_pct']:.3f}"` hitting percentage
 across `{python} int(leaders.iloc[0]['games'])` matches. UC Irvine's
@@ -110,7 +111,7 @@ GROUP BY player_name, team
 ORDER BY total DESC
 LIMIT 1
 """
-digs_leader = resolve_team(client.query(digs_query).to_dataframe())
+digs_leader = client.query(digs_query).to_dataframe()
 
 blocks_query = """
 SELECT player_name, team, SUM(CAST(total_blocks AS FLOAT64)) AS total
@@ -120,7 +121,7 @@ GROUP BY player_name, team
 ORDER BY total DESC
 LIMIT 1
 """
-blocks_leader = resolve_team(client.query(blocks_query).to_dataframe())
+blocks_leader = client.query(blocks_query).to_dataframe()
 
 aces_query = """
 SELECT player_name, team, SUM(CAST(service_aces AS INT64)) AS total
@@ -130,15 +131,15 @@ GROUP BY player_name, team
 ORDER BY total DESC
 LIMIT 1
 """
-aces_leader = resolve_team(client.query(aces_query).to_dataframe())
+aces_leader = client.query(aces_query).to_dataframe()
 ```
 
-`{python} digs_leader.iloc[0]['player_name']` (`{python} digs_leader.iloc[0]['team']`)
+`{python} digs_leader.iloc[0]['player_name']` (`{python} team_name(digs_leader.iloc[0]['team'])`)
 led all players in digs with `{python} int(digs_leader.iloc[0]['total'])`.
-`{python} blocks_leader.iloc[0]['player_name']` (`{python} blocks_leader.iloc[0]['team']`)
+`{python} blocks_leader.iloc[0]['player_name']` (`{python} team_name(blocks_leader.iloc[0]['team'])`)
 topped the block chart with `{python} int(blocks_leader.iloc[0]['total'])`, well
 clear of the field. And `{python} aces_leader.iloc[0]['player_name']`
-(`{python} aces_leader.iloc[0]['team']`) led in aces with
+(`{python} team_name(aces_leader.iloc[0]['team'])`) led in aces with
 `{python} int(aces_leader.iloc[0]['total'])`.
 
 ## The championship: Hawaii over UC Irvine
@@ -153,7 +154,7 @@ WHERE game_id = '6598557'
   AND CAST(kills AS INT64) > 0
 ORDER BY team, CAST(kills AS INT64) DESC
 """
-final_box = resolve_team(client.query(final_query).to_dataframe())
+final_box = client.query(final_query).to_dataframe()
 final_box
 ```
 
@@ -182,7 +183,7 @@ The pipeline code behind this post [lives here](https://github.com/maydaytek/may
 
 ::: {.callout-note}
 Like the baseball and hockey posts, this one uses Quarto's frozen
-execution (`freeze: true`): the queries above ran once, locally, against
+execution (`freeze: auto`): the queries above ran once, locally, against
 BigQuery, and the deployed site reuses that committed output rather than
 re-querying on every build.
 :::

@@ -52,9 +52,10 @@ project tree with Quarto's own bundled example templates, and
 and fail with an "Invalid Shortcode" error. Keeping the Quarto install
 out of the project directory avoids that entirely.
 
-Because `freeze: true` is set, this render reuses the `_freeze/`
-output committed in step 1 instead of re-executing any Python or
-querying BigQuery - so this build needs no GCP credentials. Note:
+Because `freeze: auto` is set, this render reuses the `_freeze/`
+output committed in step 1 for any post whose source hasn't changed,
+instead of re-executing its Python or querying BigQuery - so this build
+needs no GCP credentials for those posts. Note:
 Cloudflare Pages auto-detects `requirements.txt` at the repo root and
 will `pip install` it regardless, even though frozen renders don't
 need it - this costs a bit of build time but doesn't affect

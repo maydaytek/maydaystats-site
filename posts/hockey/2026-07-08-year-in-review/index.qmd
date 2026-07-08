@@ -153,7 +153,7 @@ The pipeline code behind this post [lives here](https://github.com/maydaytek/may
 
 ::: {.callout-note}
 Like the baseball posts, this one uses Quarto's frozen execution
-(`freeze: true`): the queries above ran once, locally, against BigQuery,
+(`freeze: auto`): the queries above ran once, locally, against BigQuery,
 and the deployed site reuses that committed output rather than
 re-querying on every build.
 :::

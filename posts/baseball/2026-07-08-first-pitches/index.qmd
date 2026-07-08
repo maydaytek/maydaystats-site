@@ -70,7 +70,7 @@ than pipeline validation.
 The pipeline code behind this post [lives here](https://github.com/maydaytek/maydaystats-pipelines).
 
 ::: {.callout-note}
-This post uses Quarto's frozen execution (`freeze: true`): the code
+This post uses Quarto's frozen execution (`freeze: auto`): the code
 above only re-runs when I re-render locally with fresh BigQuery access.
 The deployed site reuses that committed output rather than re-querying
 BigQuery on every build, which is what lets Cloudflare Pages build this
