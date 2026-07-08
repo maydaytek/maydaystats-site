@@ -1,10 +1,12 @@
 ---
 title: "Hockey"
+listing:
+  contents: posts/hockey
+  type: default
+  sort: "date desc"
+  categories: true
+page-layout: full
 ---
 
-Coming soon. The NHL data pipeline (play-by-play and boxscore data via
-the NHL API, loaded into BigQuery) follows the same pattern as the
-baseball pipeline and hasn't been built yet.
-
-In the meantime, see [Baseball](baseball.qmd) for the pipeline this
-section will mirror once it's live.
+NHL analysis, sourced from boxscore data via a daily automated pipeline
+into BigQuery.

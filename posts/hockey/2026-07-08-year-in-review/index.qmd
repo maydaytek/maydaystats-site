@@ -1,0 +1,159 @@
+---
+title: "Year in Review: The 2025-26 NHL Season"
+description: "A full season of NHL boxscore data, pulled through the hockey pipeline into BigQuery: the scoring race, the goaltending duels, and how the league's best regular-season team still didn't win it all."
+date: 2026-07-08
+categories: [Hockey, Featured, Season Recap]
+---
+
+The hockey pipeline has now pulled a complete season: every regular-season
+and playoff game from the 2025-26 NHL season, backfilled game by game into
+BigQuery. This post is the first real analysis built on top of it, a look
+back at the season through the same data the daily pipeline keeps adding
+to.
+
+One wrinkle worth flagging up front: the NHL's schedule API also
+listed games from the Milano Cortina Winter Olympics during the league's
+February break, tagged with a different game type than regular-season or
+playoff games. Those are country-vs-country games, not NHL team games, so
+they're filtered out of everything below.
+
+## Querying the season
+
+```{python}
+#| label: fetch-scorers
+#| echo: true
+from google.cloud import bigquery
+
+client = bigquery.Client()
+
+query = """
+SELECT
+  player_name,
+  team,
+  SUM(goals) AS goals,
+  SUM(assists) AS assists,
+  SUM(points) AS points,
+  COUNT(DISTINCT game_id) AS games_played
+FROM `maydaystats.nhl_stats.boxscores`
+WHERE CAST(SUBSTR(CAST(game_id AS STRING), 5, 2) AS INT64) IN (2, 3)
+  AND position_group != 'goalie'
+GROUP BY player_name, team
+ORDER BY points DESC
+LIMIT 10
+"""
+
+scorers = client.query(query).to_dataframe()
+scorers
+```
+
+`{python} scorers.iloc[0]['player_name']` led the league with
+`{python} int(scorers.iloc[0]['points'])` points
+(`{python} int(scorers.iloc[0]['goals'])` goals,
+`{python} int(scorers.iloc[0]['assists'])` assists) across
+`{python} int(scorers.iloc[0]['games_played'])` games, including the
+playoffs. Connor McDavid finished a close second, and Colorado and Vegas
+each placed two players in the top ten scorers, more than any other
+team.
+
+## The top ten, by points
+
+```{python}
+#| label: fig-top-scorers
+#| fig-cap: "Top 10 point scorers, 2025-26 regular season and playoffs combined"
+import matplotlib.pyplot as plt
+
+fig, ax = plt.subplots(figsize=(9, 5))
+labels = scorers["player_name"] + " (" + scorers["team"] + ")"
+ax.barh(labels[::-1], scorers["points"][::-1], color="#2c3e50")
+ax.set_xlabel("Points")
+ax.set_title("Top 10 Scorers, 2025-26 Season")
+ax.spines[["top", "right"]].set_visible(False)
+plt.tight_layout()
+plt.show()
+```
+
+## The best record didn't win the Cup
+
+```{python}
+#| label: fetch-standings
+#| echo: true
+standings_query = """
+SELECT
+  team,
+  COUNTIF(decision = 'W') AS wins,
+  COUNTIF(decision = 'L') AS losses
+FROM `maydaystats.nhl_stats.boxscores`
+WHERE CAST(SUBSTR(CAST(game_id AS STRING), 5, 2) AS INT64) = 2
+  AND position_group = 'goalie'
+  AND decision IS NOT NULL
+GROUP BY team
+ORDER BY wins DESC
+LIMIT 5
+"""
+
+standings = client.query(standings_query).to_dataframe()
+standings
+```
+
+Colorado had the best regular-season record in the league at
+`{python} int(standings.iloc[0]['wins'])`-`{python} int(standings.iloc[0]['losses'])`,
+built in part on Nathan MacKinnon's scoring, and Carolina wasn't far
+behind. But the regular season and the playoffs are different
+tournaments. Colorado was eliminated in the second round, while Carolina
+kept going all the way to the Stanley Cup Final, where they met the Vegas
+Golden Knights.
+
+```{python}
+#| label: fetch-final
+#| echo: true
+final_query = """
+WITH final_games AS (
+  SELECT game_id, game_date, team, SUM(goals) AS team_goals
+  FROM `maydaystats.nhl_stats.boxscores`
+  WHERE CAST(SUBSTR(CAST(game_id AS STRING), 5, 2) AS INT64) = 3
+    AND team IN ('CAR', 'VGK')
+  GROUP BY game_id, game_date, team
+)
+SELECT
+  game_date,
+  MAX(IF(team = 'CAR', team_goals, NULL)) AS car_goals,
+  MAX(IF(team = 'VGK', team_goals, NULL)) AS vgk_goals
+FROM final_games
+GROUP BY game_date
+HAVING car_goals IS NOT NULL AND vgk_goals IS NOT NULL
+ORDER BY game_date
+"""
+
+final = client.query(final_query).to_dataframe()
+final
+```
+
+The Final went six games, and four of them were decided by a single goal.
+Carolina closed it out on June 14 with a
+`{python} int(final.iloc[-1]['car_goals'])`-`{python} int(final.iloc[-1]['vgk_goals'])`
+shutout, taking the series 4 games to 2. Vegas rode Cam Hart the entire
+playoffs, all the way through the Final loss. Carolina's path in goal was
+less steady: Frederik Andersen started most of the postseason, but after
+a Game 3 loss, Carolina turned to Brandon Bussi, who started and won
+Games 4, 5, and 6 to close out the series. Neither goalie led the league
+in wins during the regular season; that distinction was a near tie
+between Tampa Bay's Andrei Vasilevskiy and Utah's Karel Vejmelka, both at
+39.
+
+## What's next
+
+This post covers the season at a high level: scoring, standings, and the
+playoff run. The same table supports much narrower questions too, like
+how a specific team's goaltending held up across back-to-backs, or how a
+rookie's production changed after the Olympic break. Those are posts for
+another day, now that a full season of clean data is sitting in
+BigQuery.
+
+The pipeline code behind this post [lives here](https://github.com/maydaytek/maydaystats-pipelines).
+
+::: {.callout-note}
+Like the baseball posts, this one uses Quarto's frozen execution
+(`freeze: true`): the queries above ran once, locally, against BigQuery,
+and the deployed site reuses that committed output rather than
+re-querying on every build.
+:::
