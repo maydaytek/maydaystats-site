@@ -8,7 +8,8 @@ listing:
 page-layout: full
 ---
 
-NCAA men's and women's volleyball analysis, sourced from boxscore data
-via a daily automated pipeline into BigQuery. Pro volleyball (Major
-League Volleyball, home of Indy Ignite) is planned once a suitable data
-source is in place.
+NCAA men's and women's volleyball, plus Major League Volleyball (MLV),
+analysis sourced from boxscore data via daily automated pipelines into
+BigQuery. The MLV pipeline is the one exception to "API in, BigQuery
+out": box scores there only exist as PDF scoresheets, so that pipeline
+downloads and parses each match's PDF before it ever reaches BigQuery.

@@ -1,0 +1,303 @@
+---
+title: "Year in Review: The 2025-26 MLV Season"
+description: "A full season of Major League Volleyball box scores, scraped from PDF scoresheets and parsed into BigQuery: the league's most productive hitter, and how the No. 2 seed knocked out an upset-minded No. 4 for the title."
+date: 2026-07-09
+categories: [Volleyball, Pro, Featured, Season Recap]
+---
+
+The MLV pipeline is the odd one out on this site: every other pipeline
+here reads a first-party JSON API directly, but MLV
+(provolleyball.com's own Major League Volleyball) only publishes
+per-player box scores as PDF scoresheets attached to its schedule API.
+This pipeline downloads each match's PDF, extracts the text, and parses
+it back into structured rows, working around two different scoresheet
+templates the league used across the season (see the pipeline's
+`DEPLOY.md` for the full story). This post is the first analysis built
+on the result: every completed match from January through the May
+championship, backfilled into BigQuery.
+
+One exclusion worth flagging up front: schedule_event 636 (Team
+Launiere vs. Team Meske, March 28) is an All-Star exhibition with
+draft-style team names, not a real matchup between league teams. It's
+filtered out of every query below, the same way the
+[hockey year in review](/posts/hockey/2026-07-08-year-in-review/index.qmd)
+filters out Olympic break games.
+
+## Querying the season
+
+```{python}
+#| label: fetch-points-leaders
+#| echo: true
+from google.cloud import bigquery
+
+client = bigquery.Client()
+
+query = """
+SELECT
+  player_name,
+  team,
+  SUM(points) AS points,
+  SUM(kills) AS kills,
+  SUM(attack_attempts) AS attempts,
+  SAFE_DIVIDE(SUM(kills), SUM(attack_attempts)) AS kill_pct,
+  COUNT(DISTINCT schedule_event_id) AS matches
+FROM `maydaystats.mlv_volleyball.boxscores`
+WHERE team NOT IN ('Team Launiere', 'Team Meske')
+GROUP BY player_name, team
+ORDER BY points DESC
+LIMIT 10
+"""
+
+leaders = client.query(query).to_dataframe()
+leaders
+```
+
+`{python} leaders.iloc[0]['player_name']` of
+`{python} leaders.iloc[0]['team']` led the league with
+`{python} int(leaders.iloc[0]['points'])` points on
+`{python} int(leaders.iloc[0]['kills'])` kills across
+`{python} int(leaders.iloc[0]['matches'])` matches. Her teammate
+`{python} leaders.iloc[1]['player_name']` finished second, meaning the
+league's two most productive hitters played for the same team all
+season, a preview of who'd end up cutting down the net in May.
+
+## The top ten, by points
+
+```{python}
+#| label: fig-top-points
+#| fig-cap: "Top 10 point scorers, 2025-26 MLV regular season and playoffs combined"
+import matplotlib.pyplot as plt
+
+fig, ax = plt.subplots(figsize=(9, 5))
+labels = leaders["player_name"] + " (" + leaders["team"] + ")"
+ax.barh(labels[::-1], leaders["points"][::-1], color="#2c3e50")
+ax.set_xlabel("Points")
+ax.set_title("Top 10 Scorers, 2025-26 MLV Season")
+ax.spines[["top", "right"]].set_visible(False)
+plt.tight_layout()
+plt.show()
+```
+
+## Digs, aces, and assists
+
+```{python}
+#| label: fetch-other-leaders
+#| echo: true
+digs_query = """
+SELECT player_name, team, SUM(digs) AS total
+FROM `maydaystats.mlv_volleyball.boxscores`
+WHERE team NOT IN ('Team Launiere', 'Team Meske')
+GROUP BY player_name, team
+ORDER BY total DESC
+LIMIT 1
+"""
+digs_leader = client.query(digs_query).to_dataframe()
+
+assists_query = """
+SELECT player_name, team, SUM(assists) AS total
+FROM `maydaystats.mlv_volleyball.boxscores`
+WHERE team NOT IN ('Team Launiere', 'Team Meske')
+GROUP BY player_name, team
+ORDER BY total DESC
+LIMIT 1
+"""
+assists_leader = client.query(assists_query).to_dataframe()
+
+aces_query = """
+SELECT player_name, team, SUM(service_aces) AS total
+FROM `maydaystats.mlv_volleyball.boxscores`
+WHERE team NOT IN ('Team Launiere', 'Team Meske')
+GROUP BY player_name, team
+ORDER BY total DESC
+LIMIT 1
+"""
+aces_leader = client.query(aces_query).to_dataframe()
+```
+
+`{python} digs_leader.iloc[0]['player_name']` (`{python} digs_leader.iloc[0]['team']`)
+led all players in digs with `{python} int(digs_leader.iloc[0]['total'])`.
+`{python} assists_leader.iloc[0]['player_name']` (`{python} assists_leader.iloc[0]['team']`)
+ran the offense from the back row, topping the league with
+`{python} int(assists_leader.iloc[0]['total'])` assists. And
+`{python} aces_leader.iloc[0]['player_name']` (`{python} aces_leader.iloc[0]['team']`)
+led in aces.
+
+## The best record didn't win it either
+
+```{python}
+#| label: fetch-standings
+#| echo: true
+standings_query = """
+WITH regular_season AS (
+  SELECT * FROM `maydaystats.mlv_volleyball.matches`
+  WHERE schedule_event_id NOT IN (637, 638, 639)
+),
+team_results AS (
+  SELECT first_team_name AS team,
+    IF(first_team_score > second_team_score, 1, 0) AS win
+  FROM regular_season
+  UNION ALL
+  SELECT second_team_name AS team,
+    IF(second_team_score > first_team_score, 1, 0) AS win
+  FROM regular_season
+)
+SELECT team, SUM(win) AS wins, COUNT(*) - SUM(win) AS losses
+FROM team_results
+GROUP BY team
+ORDER BY wins DESC
+LIMIT 5
+"""
+
+standings = client.query(standings_query).to_dataframe()
+standings
+```
+
+`{python} standings.iloc[0]['team']` had the best regular-season record
+in the league at `{python} int(standings.iloc[0]['wins'])`-`{python} int(standings.iloc[0]['losses'])`,
+good enough for the No. 1 seed in a four-team playoff. It didn't matter:
+the No. 4 seed knocked them out in the semifinal, the same shape as
+this site's [NHL year in review](/posts/hockey/2026-07-08-year-in-review/index.qmd),
+where Colorado had the league's best regular season and still lost in
+the Western Conference Final. The best regular
+season and the tournament that actually decides the title are two
+different contests.
+
+## The playoffs
+
+```{python}
+#| label: fetch-playoffs
+#| echo: true
+import re
+
+playoff_query = """
+SELECT schedule_event_id, game_date, first_team_name, first_team_score,
+  second_team_name, second_team_score
+FROM `maydaystats.mlv_volleyball.matches`
+WHERE schedule_event_id IN (637, 638, 639)
+ORDER BY game_date
+"""
+playoffs = client.query(playoff_query).to_dataframe()
+
+# Playoff schedule-events carry a seed prefix in the raw team name
+# ("No. 4 Omaha Supernovas") that the regular-season rows don't - strip
+# it for display, same cleanup the pipeline itself does before matching
+# team names against the PDF text (see fetch.py's _strip_seed).
+seed_re = re.compile(r"^No\.\s*\d+\s+")
+for col in ("first_team_name", "second_team_name"):
+    playoffs[col] = playoffs[col].str.replace(seed_re, "", regex=True)
+
+playoffs
+```
+
+Four teams made the playoffs, seeded 1 through 4 on regular-season
+record, in a single-elimination bracket: 1-seed vs. 4-seed, 2-seed vs.
+3-seed, winners meet in the final. The No. 4 seed
+`{python} playoffs.iloc[0]['second_team_name']` beat the No. 1 seed
+`{python} playoffs.iloc[0]['first_team_name']`
+`{python} int(playoffs.iloc[0]['second_team_score'])`-`{python} int(playoffs.iloc[0]['first_team_score'])`
+in the semifinal, while the No. 2 seed
+`{python} playoffs.iloc[1]['first_team_name']` handled the No. 3 seed
+`{python} playoffs.iloc[1]['second_team_name']` in four sets to reach
+the final.
+
+### The semifinal upset
+
+```{python}
+#| label: fetch-semifinal-box
+#| echo: true
+semifinal_query = """
+SELECT team, SUM(kills) AS kills, SUM(attack_attempts) AS attempts,
+  SUM(service_errors) AS service_errors,
+  SUM(reception_errors) AS reception_errors, SUM(total_blocks) AS blocks
+FROM `maydaystats.mlv_volleyball.boxscores`
+WHERE schedule_event_id = 637
+GROUP BY team
+"""
+semifinal_team_totals = client.query(semifinal_query).to_dataframe()
+semifinal_team_totals
+```
+
+The team totals are the surprise: Indy Ignite actually out-hit Omaha in
+this match, 70 kills on 187 attempts to Omaha's 63 kills on 178
+attempts, and blocking was close, 12 to 13. Indy lost the match
+anyway, and the reason shows up in two other columns rather than
+hitting: Indy committed 17 service errors and 4 reception errors,
+against Omaha's 13 and 1. Four extra free points from bad passing on
+top of four extra serves into the net or out of bounds accounts for
+most of the margin in a match that went the full five sets.
+
+```{python}
+#| label: fetch-semifinal-players
+#| echo: true
+semifinal_players_query = """
+SELECT player_name, team, kills, attack_attempts, total_blocks
+FROM `maydaystats.mlv_volleyball.boxscores`
+WHERE schedule_event_id = 637
+  AND player_name IN ('Leketor Member-Meneh', 'Janice Leao')
+"""
+semifinal_players = client.query(semifinal_players_query).to_dataframe()
+semifinal_players
+```
+
+The individual swing goes the other way. Leketor Member-Meneh came in
+averaging 9.7 kills a match on a .367 hitting percentage all season,
+Indy's second-most productive hitter behind Azhani Tealer. Against
+Omaha she went 6-for-22, a .273 clip on well below her usual number of
+swings. Omaha, meanwhile, got a night nobody could have projected from
+its bench: Janice Leao entered the match averaging 1.6 kills and 1.3
+blocks per match on a .344 hitting percentage for the season, and went
+10-for-17 (.588) with 4 blocks, by a wide margin her best match of the
+year, in the one match her team needed it most.
+
+```{python}
+#| label: fetch-final-box
+#| echo: true
+final_query = """
+SELECT player_name, team, kills, points, digs, total_blocks
+FROM `maydaystats.mlv_volleyball.boxscores`
+WHERE schedule_event_id = 639
+ORDER BY points DESC
+LIMIT 5
+"""
+final_box = client.query(final_query).to_dataframe()
+final_box
+```
+
+`{python} playoffs.iloc[2]['first_team_name']` beat
+`{python} playoffs.iloc[2]['second_team_name']`
+`{python} int(playoffs.iloc[2]['first_team_score'])`-`{python} int(playoffs.iloc[2]['second_team_score'])`
+in the final to win the title, powered by
+`{python} final_box.iloc[0]['player_name']`'s
+`{python} int(final_box.iloc[0]['kills'])` kills and
+`{python} int(final_box.iloc[0]['points'])` points, a clean encore of
+the two-hitter attack that carried the team all season. The runner-up's
+semifinal upset ran out of steam one match short of the trophy.
+
+## What's next
+
+This covers the season at a high level: the league leaderboards, the
+regular-season standings, and the playoff bracket itself. The same
+table supports much narrower questions too, like a single hitter's
+efficiency swings across the two scoresheet eras, or how a team's block
+numbers held up on the road. Those are posts for another day, now that
+a full season of validated data is sitting in BigQuery.
+
+The pipeline code behind this post [lives here](https://github.com/maydaytek/maydaystats-pipelines).
+
+::: {.callout-note}
+Every match row in this dataset carries a `checksum_ok` flag: the
+pipeline sums each parsed player's stats and cross-checks the total
+against the scoresheet's own printed team total, and flags anything
+that doesn't match exactly rather than trusting it silently. 88 of the
+99 matches in the dataset check out clean; the other 11 are flagged
+for a small, isolated discrepancy in one column (attack attempts) that
+traces back to the scoresheet's own printed total rather than a parsing
+error - see the pipeline's `DEPLOY.md` for the full investigation.
+Nothing in this post depends on that column, but a query that does
+should filter `WHERE checksum_ok`.
+
+Like the other posts on this site, this one uses Quarto's frozen
+execution (`freeze: auto`): the queries above ran once, locally,
+against BigQuery, and the deployed site reuses that committed output
+rather than re-querying on every build.
+:::
