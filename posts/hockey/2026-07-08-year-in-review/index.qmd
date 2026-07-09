@@ -99,9 +99,85 @@ Colorado had the best regular-season record in the league at
 `{python} int(standings.iloc[0]['wins'])`-`{python} int(standings.iloc[0]['losses'])`,
 built in part on Nathan MacKinnon's scoring, and Carolina wasn't far
 behind. But the regular season and the playoffs are different
-tournaments. Colorado was eliminated in the second round, while Carolina
-kept going all the way to the Stanley Cup Final, where they met the Vegas
-Golden Knights.
+tournaments. Colorado swept the Kings in the first round and beat
+Minnesota 4 games to 1 in the second, then ran into Vegas in the
+Western Conference Final and lost in a sweep of their own. Carolina
+kept going all the way to the Stanley Cup Final, where they met that
+same Vegas team.
+
+## What actually happened to Colorado
+
+```{python}
+#| label: fetch-col-series
+#| echo: true
+col_series_query = """
+SELECT game_id, team, SUM(goals) AS goals
+FROM `maydaystats.nhl_stats.boxscores`
+WHERE game_id IN (2025030321, 2025030322, 2025030323, 2025030324)
+GROUP BY game_id, team
+ORDER BY game_id, team
+"""
+col_series = client.query(col_series_query).to_dataframe()
+col_series
+```
+
+Four games, four Vegas wins: 4-2, 3-1, 5-3, 2-1. It wasn't a case of
+Colorado getting run off the ice, three of the four games were
+decided by a single goal or two, but a sweep is a sweep, and the box
+scores point at two specific reasons rather than a generic cold streak.
+
+```{python}
+#| label: fetch-col-goalies
+#| echo: true
+goalie_query = """
+SELECT game_id, team, player_name, save_pctg
+FROM `maydaystats.nhl_stats.boxscores`
+WHERE game_id IN (2025030321, 2025030322, 2025030323, 2025030324)
+  AND position_group = 'goalie'
+  AND save_pctg IS NOT NULL
+ORDER BY game_id, team
+"""
+goalies = client.query(goalie_query).to_dataframe()
+goalies
+```
+
+Vegas starter Cam Hart never had a bad night: a .947 save percentage in
+Game 1, .968 in Game 2, .914 in Game 3, .952 in Game 4, four
+consecutive starts above his own regular-season form. Colorado's own
+goaltending was more uneven than collapsed: Scott Wedgewood started the
+first three games and posted a .908 save percentage across the regular
+season, but ranged from .889 to .917 to .818 in this series, a rough
+Game 3 more than a full collapse. Mackenzie Blackwood took over for
+Game 4 and actually outplayed his own .894 season average, stopping
+.923. Colorado's goaltending wasn't the story on its own. Vegas's
+goalie having the series of his season was.
+
+```{python}
+#| label: fetch-mackinnon-series
+#| echo: true
+mackinnon_query = """
+SELECT COUNT(DISTINCT game_id) AS games, SUM(goals) AS goals,
+  SUM(assists) AS assists, SUM(points) AS points
+FROM `maydaystats.nhl_stats.boxscores`
+WHERE player_name = 'N. MacKinnon' AND team = 'COL'
+  AND game_id IN (2025030321, 2025030322, 2025030323, 2025030324)
+"""
+mackinnon_series = client.query(mackinnon_query).to_dataframe()
+mackinnon_series
+```
+
+The bigger story is Nathan MacKinnon, the same player whose scoring
+this post already credited with carrying Colorado's regular season.
+Across 80 regular-season games he scored 57 goals, a .71-goal-per-game
+pace. Across the four-game sweep against Vegas he scored
+`{python} int(mackinnon_series.iloc[0]['goals'])`. Zero. Two assists,
+two total points, in the series that ended his team's season. Gabriel
+Landeskog led the team in goals with 3, and tied Nazem Kadri and Devon
+Toews for the team lead in points at 3 apiece, but a
+team built around its best player suddenly not scoring, against a
+goalie who was outplaying his own season averages every single night,
+is a specific, findable reason a 58-win team went home in May rather
+than a vague "playoffs are different" shrug.
 
 ```{python}
 #| label: fetch-final
@@ -128,17 +204,18 @@ final = client.query(final_query).to_dataframe()
 final
 ```
 
-The Final went six games, and four of them were decided by a single goal.
-Carolina closed it out on June 14 with a
+The Final went six games, and three of them (Games 1 through 3) were
+decided by a single goal. Carolina closed it out on June 14 with a
 `{python} int(final.iloc[-1]['car_goals'])`-`{python} int(final.iloc[-1]['vgk_goals'])`
 shutout, taking the series 4 games to 2. Vegas rode Cam Hart the entire
-playoffs, all the way through the Final loss. Carolina's path in goal was
-less steady: Frederik Andersen started most of the postseason, but after
-a Game 3 loss, Carolina turned to Brandon Bussi, who started and won
-Games 4, 5, and 6 to close out the series. Neither goalie led the league
-in wins during the regular season; that distinction was a near tie
-between Tampa Bay's Andrei Vasilevskiy and Utah's Karel Vejmelka, both at
-39.
+playoffs, all 22 games across all four rounds, all the way through the
+Final loss. Carolina's path in goal was less steady: Frederik Andersen
+started most of the postseason, including the first two games of the
+Final, but Carolina turned to Brandon Bussi for Game 3, which Bussi
+lost, before he settled in and won Games 4, 5, and 6 to close out the
+series. Neither goalie led the league in wins during the regular
+season; that distinction was an exact tie between Tampa Bay's Andrei
+Vasilevskiy and Utah's Karel Vejmelka, both at 39.
 
 ## What's next
 
@@ -152,8 +229,8 @@ BigQuery.
 The pipeline code behind this post [lives here](https://github.com/maydaytek/maydaystats-pipelines).
 
 ::: {.callout-note}
-Like the baseball posts, this one uses Quarto's frozen execution
-(`freeze: auto`): the queries above ran once, locally, against BigQuery,
-and the deployed site reuses that committed output rather than
+Like the [baseball](/baseball.qmd) posts, this one uses Quarto's frozen
+execution (`freeze: auto`): the queries above ran once, locally, against
+BigQuery, and the deployed site reuses that committed output rather than
 re-querying on every build.
 :::

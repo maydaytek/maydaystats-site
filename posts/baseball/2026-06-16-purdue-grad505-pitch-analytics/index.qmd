@@ -24,11 +24,24 @@ of it was large.
 
 ## Three research questions
 
+The first deliverable checked the data for major quality problems before
+any modeling started, a missing-values audit across all five joined
+tables, shown below by column. Nothing in that audit compromised any of
+the three analyses that follow.
+
+![Missing data by column, across all five joined tables](https://raw.githubusercontent.com/maydaytek/GRAD_505_PROJECT/main/IMAGES/fig1_missing_data.png)
+
 **Does a pitcher's pitch mix change the third time through the order?**
 A chi-square test of independence on pitch type versus times through the
 order came back significant (chi-square = 41,249.35, df = 10, p < 0.001),
 but Cramer's V was 0.0895, a small effect by any standard cutoff. Pitchers
 do shift their mix as a game goes on, just not by much.
+
+![Pitch-type distribution by times through the order](https://raw.githubusercontent.com/maydaytek/GRAD_505_PROJECT/main/IMAGES/fig2_q1_pitch_type_tto.png)
+
+![Pitch-type share summary table](https://raw.githubusercontent.com/maydaytek/GRAD_505_PROJECT/main/IMAGES/fig3_q1_table.png)
+
+![Chi-square test of independence: pitch type vs. times through the order](https://raw.githubusercontent.com/maydaytek/GRAD_505_PROJECT/main/IMAGES/fig7_q1_hypothesis_test.png)
 
 **Does spin rate on a four-seam fastball predict a whiff?** A one-sided
 Mann-Whitney U test found whiffs came on pitches with a higher median
@@ -41,6 +54,14 @@ p = 1.82e-06), but the model explained just 2.4% of the variance in whiff
 rate (R-squared = 0.0243). Spin rate matters, but it's one input among
 many.
 
+![Four-seam spin rate distribution, whiffs vs. balls in play](https://raw.githubusercontent.com/maydaytek/GRAD_505_PROJECT/main/IMAGES/fig4_q2_spinrate_boxplot.png)
+
+![Whiff rate by four-seam spin rate bin](https://raw.githubusercontent.com/maydaytek/GRAD_505_PROJECT/main/IMAGES/fig5_q2_spinrate_whiff.png)
+
+![Mann-Whitney U test: four-seam spin rate, whiffs vs. balls in play](https://raw.githubusercontent.com/maydaytek/GRAD_505_PROJECT/main/IMAGES/fig8_q2_hypothesis_test.png)
+
+![OLS regression: whiff rate vs. average four-seam spin rate](https://raw.githubusercontent.com/maydaytek/GRAD_505_PROJECT/main/IMAGES/fig11_regression_spin_whiff.png)
+
 **Does average fastball velocity predict strike-zone rate in high-leverage
 innings (7th-9th)?** This is the one question where the data didn't
 clear the bar. Pearson correlation between average four-seam velocity and
@@ -49,6 +70,10 @@ zone percentage came back essentially flat (r = 0.0379, p = 0.276, n =
 to reject the null. A secondary Spearman rank correlation was technically
 significant (rho = 0.0727, p = 0.036), but at that size it's not a
 finding to build anything on.
+
+![Average four-seam velocity vs. zone percentage, high-leverage innings](https://raw.githubusercontent.com/maydaytek/GRAD_505_PROJECT/main/IMAGES/fig6_q3_velo_zone.png)
+
+![Pearson correlation: velocity vs. zone percentage, with 95% CI](https://raw.githubusercontent.com/maydaytek/GRAD_505_PROJECT/main/IMAGES/fig9_q3_hypothesis_test.png)
 
 ## The velocity creep that is real, and tiny
 
@@ -94,6 +119,8 @@ At this sample size the confidence intervals are tight enough that every
 pitch type is distinguishable from every other, changeups and sliders
 generate whiffs at roughly the same rate and both clear fastballs by
 nearly double.
+
+![Whiff rate by pitch type, with 95% Wilson confidence intervals](https://raw.githubusercontent.com/maydaytek/GRAD_505_PROJECT/main/IMAGES/fig10_ci_whiff_by_pitch_type.png)
 
 ## Why this belongs next to the pipeline posts
 

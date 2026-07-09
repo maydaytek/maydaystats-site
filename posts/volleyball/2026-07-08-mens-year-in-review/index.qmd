@@ -77,7 +77,7 @@ leaders
 `{python} int(leaders.iloc[0]['kills'])` kills, on a
 `{python} f"{leaders.iloc[0]['hitting_pct']:.3f}"` hitting percentage
 across `{python} int(leaders.iloc[0]['games'])` matches. UC Irvine's
-Andrej Jokanovic finished a close second in raw kills, but needed nearly
+Andrej Jokanovic finished a close second in raw kills, but needed about
 60 more swings to get there, a volume-over-efficiency trade that shows
 up again later in his team's championship match.
 
@@ -159,10 +159,12 @@ final_box
 ```
 
 Hawaii beat UC Irvine 3-1 on May 11, 2026 to win the national
-championship, the program's first title since 2021. Kristian Titriyski
-led the way with 16 kills on a .387 hitting percentage, with Adrien
-Roure adding 15 more. Louis Sakanoko was the most efficient hitter on
-the floor, going 12-for-20 (.500) with 3 blocks off the bench.
+championship. Kristian Titriyski led the way with 16 kills on a .387
+hitting percentage, with Adrien Roure adding 15 more. Louis Sakanoko
+went 12-for-20 (.500) with 3 blocks off the bench, the best hitting
+percentage of anyone with real volume in the match (two Hawaii players
+posted a higher percentage on much smaller sample sizes, 5-for-7 and
+7-for-10).
 
 UC Irvine's offense leaned almost entirely on Andrej Jokanovic, the same
 volume hitter who finished second nationally in kills for the season. He
@@ -182,8 +184,9 @@ BigQuery.
 The pipeline code behind this post [lives here](https://github.com/maydaytek/maydaystats-pipelines).
 
 ::: {.callout-note}
-Like the baseball and hockey posts, this one uses Quarto's frozen
-execution (`freeze: auto`): the queries above ran once, locally, against
-BigQuery, and the deployed site reuses that committed output rather than
+Like the [baseball](/baseball.qmd) and [hockey](/hockey.qmd) posts, this
+one uses Quarto's frozen execution (`freeze: auto`): the queries above
+ran once, locally, against BigQuery, and the deployed site reuses that
+committed output rather than
 re-querying on every build.
 :::

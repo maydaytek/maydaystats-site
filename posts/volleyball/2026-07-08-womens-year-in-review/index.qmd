@@ -13,7 +13,8 @@ first real analysis built on top of it.
 
 One note on the data: a much smaller share of rows here (well under 1%)
 carry a blank player name, the same kind of NCAA-side gap described in
-the men's post, not a pipeline bug.
+the [men's year in review](/posts/volleyball/2026-07-08-mens-year-in-review/index.qmd),
+not a pipeline bug.
 
 ## Querying the season
 
@@ -138,8 +139,8 @@ aces_leader = client.query(aces_query).to_dataframe()
 `{python} digs_leader.iloc[0]['player_name']` (`{python} team_name(digs_leader.iloc[0]['team'])`)
 led all players in digs with `{python} int(digs_leader.iloc[0]['total'])`.
 `{python} blocks_leader.iloc[0]['player_name']` of Utah Valley led the
-country in blocks with `{python} int(blocks_leader.iloc[0]['total'])`, part
-of a team effort that led the nation in team blocking as well. And
+country in individual blocks with `{python} int(blocks_leader.iloc[0]['total'])`.
+And
 `{python} aces_leader.iloc[0]['player_name']` (`{python} team_name(aces_leader.iloc[0]['team'])`)
 topped the ace leaderboard with `{python} int(aces_leader.iloc[0]['total'])`,
 the same program that produced the season's kills leader.
@@ -170,8 +171,9 @@ Kentucky's Eva Hudson, who finished among the national top ten in kills
 for the season, led all players in the match with 13 kills, but needed
 45 attempts to get there, a .200 hitting percentage. By far the highest
 attempt count on the floor, it meant Kentucky's offense ran through one
-hitter without the efficiency to match the volume, the same pattern that
-showed up in the men's final two days apart on the calendar year.
+hitter without the efficiency to match the volume, the same volume-over-
+efficiency pattern that showed up in the
+[men's championship match](/posts/volleyball/2026-07-08-mens-year-in-review/index.qmd#the-championship-hawaii-over-uc-irvine).
 
 ## What's next
 
@@ -185,8 +187,10 @@ clean data is sitting in BigQuery.
 The pipeline code behind this post [lives here](https://github.com/maydaytek/maydaystats-pipelines).
 
 ::: {.callout-note}
-Like the baseball, hockey, and men's volleyball posts, this one uses
-Quarto's frozen execution (`freeze: auto`): the queries above ran once,
-locally, against BigQuery, and the deployed site reuses that committed
-output rather than re-querying on every build.
+Like the [baseball](/baseball.qmd), [hockey](/hockey.qmd), and
+[men's volleyball](/posts/volleyball/2026-07-08-mens-year-in-review/index.qmd)
+posts, this one uses Quarto's frozen execution (`freeze: auto`): the
+queries above ran once, locally, against BigQuery, and the deployed
+site reuses that committed output rather than re-querying on every
+build.
 :::
