@@ -1,0 +1,315 @@
+---
+title: "Fan Vote vs. the Numbers: Grading the 2026 All-Star Rosters"
+description: "The starters are elected by fans, and that's fine. Here's who the stat lines say actually earned it."
+date: 2026-07-10
+categories: [Baseball, Featured, All-Star Game]
+---
+
+The 2026 All-Star Game is July 14 in Philadelphia, and the rosters are
+set. Starters are elected by fans in a multi-phase vote, most reserves
+are added by a mix of player ballot and each league's coaching/front
+office staff, and the Commissioner gets one "Legend Pick" per league on
+top of all that. That process is built around name recognition and
+storylines as much as this season's stats, and there's nothing wrong
+with that: the All-Star Game is partly a popularity contest by design,
+and always has been.
+
+But it also means "elected starter" and "best player at the position
+this year" aren't the same claim. With our own season stats pipeline
+now tracking every hitter and pitcher's numbers daily (see
+[the pipeline behind this analysis](/posts/baseball/2026-07-08-first-pitches/index.qmd)
+for the batting/pitching side of things), it's worth actually checking:
+who's on the roster because the numbers say so, and who's there for
+other reasons?
+
+## Who actually leads the league
+
+```{python}
+#| label: fetch-leaders
+#| echo: true
+from google.cloud import bigquery
+import pandas as pd
+
+client = bigquery.Client()
+
+batting_query = """
+SELECT
+  league_name, player_name, team_name,
+  homeRuns, CAST(ops AS FLOAT64) AS ops, CAST(avg AS FLOAT64) AS avg,
+  plateAppearances,
+  RANK() OVER (PARTITION BY league_name ORDER BY CAST(ops AS FLOAT64) DESC) AS ops_rank
+FROM `maydaystats.mlb_season_stats.batting_latest`
+WHERE plateAppearances >= 150
+ORDER BY league_name, ops_rank
+"""
+# Every qualified hitter, ranked; used below for specific-player lookups
+# (some storyline players, like Guerrero, rank well outside the top 15).
+batting_all = client.query(batting_query).to_dataframe()
+batting = batting_all[batting_all["ops_rank"] <= 15].copy()
+
+pitching_query = """
+SELECT
+  league_name, player_name, team_name,
+  CAST(era AS FLOAT64) AS era, strikeOuts, CAST(whip AS FLOAT64) AS whip,
+  wins, CAST(inningsPitched AS FLOAT64) AS ip
+FROM `maydaystats.mlb_season_stats.pitching_latest`
+WHERE CAST(inningsPitched AS FLOAT64) >= 60
+QUALIFY RANK() OVER (PARTITION BY league_name ORDER BY era ASC) <= 15
+ORDER BY league_name, era ASC
+"""
+pitching = client.query(pitching_query).to_dataframe()
+
+# The full announced rosters (starters, pitchers, and reserves), plus how
+# each player got there. Source: MLB.com's official roster announcement
+# and the subsequent replacement announcements for Vladimir Guerrero Jr.
+all_stars = {
+    # American League
+    "Shea Langeliers": "Elected starter", "Vladimir Guerrero Jr.": "Elected starter (withdrew, injury)",
+    "Ernie Clement": "Elected starter", "Junior Caminero": "Elected starter",
+    "Bobby Witt Jr.": "Elected starter", "Mike Trout": "Elected starter",
+    "Byron Buxton": "Elected starter", "Aaron Judge": "Elected starter",
+    "Yordan Alvarez": "Elected starter",
+    "Bryan Baker": "MLB's choice", "Dylan Cease": "Player-elected",
+    "Aroldis Chapman": "Player-elected", "Jacob Latz": "MLB's choice",
+    "Parker Messick": "Player-elected", "Drew Rasmussen": "Reserve",
+    "Joe Ryan": "Player-elected", "Cam Schlittler": "Player-elected",
+    "Cade Smith": "Player-elected", "Ranger Suarez": "MLB's choice",
+    "Louis Varland": "Player-elected", "Michael Wacha": "MLB's choice",
+    "Dillon Dingler": "Player-elected", "Adley Rutschman": "MLB's choice",
+    "Travis Bazzana": "Player-elected", "Nick Kurtz": "Reserve -> now starting (Guerrero replacement)",
+    "Kevin McGonigle": "Player-elected", "Ben Rice": "MLB's choice",
+    "Miguel Vargas": "Player-elected", "Randy Arozarena": "Player-elected",
+    "Cody Bellinger": "Player-elected", "Riley Greene": "Player-elected",
+    "Yandy Díaz": "Player-elected", "Justin Verlander": "Legend Pick",
+    "Willson Contreras": "Roster replacement (for Guerrero)",
+    # National League
+    "Drake Baldwin": "Elected starter", "Freddie Freeman": "Elected starter",
+    "Ozzie Albies": "Elected starter", "Max Muncy": "Elected starter",
+    "CJ Abrams": "Elected starter", "Brandon Marsh": "Elected starter",
+    "Juan Soto": "Elected starter", "Andy Pages": "Elected starter",
+    "Shohei Ohtani": "Elected starter",
+    "Chase Burns": "Player-elected", "Jhoan Duran": "Player-elected",
+    "Raisel Iglesias": "Player-elected", "Max Meyer": "MLB's choice",
+    "Mason Miller": "Player-elected", "Jacob Misiorowski": "Player-elected",
+    "Eduardo Rodriguez": "MLB's choice", "Chris Sale": "Player-elected",
+    "Cristopher Sánchez": "Player-elected", "Paul Skenes": "Player-elected",
+    "Logan Webb": "MLB's choice", "Yoshinobu Yamamoto": "MLB's choice",
+    "William Contreras": "Player-elected", "Hunter Goodman": "MLB's choice",
+    "Luis Arraez": "Player-elected", "Bryce Harper": "Legend Pick",
+    "Otto Lopez": "Player-elected", "Matt Olson": "Player-elected",
+    "Sal Stewart": "Player-elected", "Corbin Carroll": "Player-elected",
+    "Pete Crow-Armstrong": "Player-elected", "Jordan Walker": "MLB's choice",
+    "James Wood": "Player-elected", "Kyle Schwarber": "Player-elected",
+}
+
+batting_all["selection"] = batting_all["player_name"].map(all_stars).fillna("Not selected")
+batting["selection"] = batting["player_name"].map(all_stars).fillna("Not selected")
+pitching["selection"] = pitching["player_name"].map(all_stars).fillna("Not selected")
+```
+
+Two lists: OPS leaders (minimum 150 plate appearances) and ERA leaders
+(minimum 60 innings), split by league, with each name tagged by whether
+(and how) they made an All-Star roster.
+
+```{python}
+#| label: fig-al-ops-leaders
+#| fig-cap: "AL OPS leaders and All-Star status"
+import matplotlib.pyplot as plt
+
+al_bat = batting[batting["league_name"] == "AL"].head(12).iloc[::-1]
+colors = ["#2c3e50" if s != "Not selected" else "#c0392b" for s in al_bat["selection"]]
+
+fig, ax = plt.subplots(figsize=(8, 6))
+ax.barh(al_bat["player_name"], al_bat["ops"], color=colors)
+ax.set_xlabel("OPS")
+ax.set_title("AL OPS Leaders (min. 150 PA)")
+ax.spines[["top", "right"]].set_visible(False)
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+#| label: fig-nl-ops-leaders
+#| fig-cap: "NL OPS leaders and All-Star status"
+nl_bat = batting[batting["league_name"] == "NL"].head(12).iloc[::-1]
+colors = ["#2c3e50" if s != "Not selected" else "#c0392b" for s in nl_bat["selection"]]
+
+fig, ax = plt.subplots(figsize=(8, 6))
+ax.barh(nl_bat["player_name"], nl_bat["ops"], color=colors)
+ax.set_xlabel("OPS")
+ax.set_title("NL OPS Leaders (min. 150 PA)")
+ax.spines[["top", "right"]].set_visible(False)
+plt.tight_layout()
+plt.show()
+```
+
+Red bars are the players leading their league in OPS who aren't on
+either All-Star roster in any capacity, elected or otherwise. Most of
+the list is dark blue, which is the actual headline: the system mostly
+works. But "mostly" is doing some work in that sentence, and it's worth
+looking at where it didn't.
+
+## The starters who back it up
+
+```{python}
+#| label: elected-starters-check
+elected = batting[batting["selection"] == "Elected starter"].sort_values("ops", ascending=False)
+top_elected = elected.head(5)
+```
+
+Start with the good news. `{python} len(elected)` of the 18 elected
+position-player starters show up in the top 15 of their league in OPS -
+a solid hit rate for a system built on votes rather than end-of-July
+stat lines. The clearest examples that fans got exactly right:
+
+```{python}
+#| label: tbl-top-starters
+#| tbl-cap: "Elected starters ranking near the top of their league in OPS"
+top_elected[["player_name", "team_name", "league_name", "homeRuns", "ops", "avg"]]
+```
+
+Yordan Alvarez leads the entire AL in OPS, and Juan Soto leads the entire
+NL, both elected starters, both correct. Shohei Ohtani, elected as the
+NL's starting DH, is right behind Soto. This is what the selection
+process is supposed to produce, and for most of both rosters, it does.
+
+## Where fan vote and merit actually diverged
+
+```{python}
+#| label: guerrero-check
+guerrero = batting_all[batting_all["player_name"] == "Vladimir Guerrero Jr."].iloc[0]
+kurtz = batting_all[batting_all["player_name"] == "Nick Kurtz"].iloc[0]
+contreras = batting_all[batting_all["player_name"] == "Willson Contreras"].iloc[0]
+```
+
+The clearest case this year is Toronto's Vladimir Guerrero Jr., elected
+as the AL's starting first baseman on name recognition and a strong
+track record, but this season he's hitting `{python} f"{guerrero['avg']:.3f}"`
+with `{python} int(guerrero['homeRuns'])` home runs and a
+`{python} f"{guerrero['ops']:.3f}"` OPS, ranking `{python} int(guerrero['ops_rank'])`th
+in the AL, nowhere near the top 15. He withdrew from the game with a lower back injury, and what happened
+next made the point better than any stat table could: the AL didn't
+just plug in whoever was next alphabetically. Nick Kurtz, already on the
+roster as a reserve, was elevated to start at first base after
+receiving the most votes among AL first basemen on the players' ballot,
+backed by a `{python} f"{kurtz['ops']:.3f}"` OPS and
+`{python} int(kurtz['homeRuns'])` home runs of his own. And Willson
+Contreras, who had a `{python} f"{contreras['ops']:.3f}"` OPS and
+`{python} int(contreras['homeRuns'])` home runs largely outside the
+national conversation, was added to fill the vacated roster spot.
+
+Guerrero's original selection wasn't wrong, exactly: he's a six-time
+All-Star with a real track record, and fan voting is allowed to weigh
+that. But when an injury forced the question, the mechanisms built to
+handle exactly this (player ballots, front-office and player-elected
+reserve picks) pulled in two players with genuinely stronger seasons.
+That's the system working as a whole, even when the first step (the
+fan vote) didn't land on the best hitter at the position this year.
+
+## The two Legend Picks, and why the exception exists
+
+```{python}
+#| label: harper-check
+harper = batting_all[batting_all["player_name"] == "Bryce Harper"].iloc[0]
+```
+
+Commissioner Rob Manfred's "Legend Pick" is explicitly not a merit
+selection: it's a one-per-league exception for a notable veteran,
+independent of this year's stats. The two picks this year show why that
+exception is worth having, for two very different reasons.
+
+Philadelphia's Bryce Harper got the NL nod, and it's worth noting he
+barely needed it: at `{python} f"{harper['ops']:.3f}"` OPS with
+`{python} int(harper['homeRuns'])` home runs, he ranks
+`{python} int(harper['ops_rank'])`th in the NL among hitters with at
+least 150 plate appearances, one spot outside the group that gets in
+purely on merit, and squarely in the same conversation as the players
+who did. The exception mechanism and the stat line landed in almost the
+same place this time.
+
+Detroit's Justin Verlander, the AL's Legend Pick, is the opposite case,
+and the clearer illustration of what the exception is actually for: one
+start all season, a 0-1 record, and a 12.27 ERA over 3.2 innings, having
+not taken the mound since March 30 because of hip and hamstring injuries.
+Nobody's arguing he earned a roster spot on this year's numbers, and the
+selection isn't pretending otherwise. Verlander
+[announced this week](https://www.espn.com/mlb/story/_/id/49307720/tigers-justin-verlander-retire-2026-season)
+that 2026 will be his final season, and this is his tenth career
+All-Star selection: a stats-independent sendoff for a three-time Cy
+Young winner, exactly the case the rule was written for.
+
+## Who the numbers left off entirely
+
+```{python}
+#| label: tbl-batting-snubs
+#| tbl-cap: "League OPS leaders not on any All-Star roster"
+batting[batting["selection"] == "Not selected"][
+    ["player_name", "team_name", "league_name", "homeRuns", "ops", "avg"]
+]
+```
+
+```{python}
+#| label: tbl-pitching-snubs
+#| tbl-cap: "League ERA leaders not on any All-Star roster"
+pitching[pitching["selection"] == "Not selected"][
+    ["player_name", "team_name", "league_name", "era", "strikeOuts", "whip", "wins"]
+]
+```
+
+A caveat before reading anything into these tables: our pipeline tracks
+performance, not health. It has no way to know a player was hurt, and
+several of the names above were, which changes what their absence
+actually means. Checked individually:
+
+Chicago's Munetaka Murakami ranks third in the entire AL in OPS, but
+he's been out since May 29 with a grade 2 hamstring strain and only
+returned to the active roster today, with his first game back not until
+tomorrow: not a snub, just unavailable when the roster was set. The
+NL's Ben Brown, third in ERA, is a cleaner version of the same story:
+he's been out with a neck stress reaction since late June and isn't
+expected back before late July at the earliest.
+
+Two others are more of an in-between case: healthy right now, but with
+a big enough gap in their season to explain why the roster process
+looked past them. Colorado's Mickey Moniak missed a month on the IL
+with an ankle injury (late May to late June) and has been excellent
+since returning, but that's exactly the stretch when All-Star cases
+get made, and he simply wasn't on the field for most of it. Detroit's
+Tarik Skubal is similar: an elbow procedure cost him six weeks, and even
+though he's been pitching like an ace since his early-June return, that
+missed time is a real chunk of a season's worth of starts he doesn't
+get back. Their current form is real, but so is the hole in their
+season that made them easy to set aside.
+
+None of these four are evidence the process missed anything: their
+absences track health, not stats.
+
+The players who were genuinely healthy and still left off make a
+cleaner case. Philadelphia's Zack Wheeler, who
+[publicly called it "kind of BS"](https://www.foxsports.com/stories/mlb/phillies-zack-wheeler-2026-mlb-all-star-game),
+is fully healthy: his exclusion is a rule, not a merit judgment. He's
+scheduled to start Philadelphia's last game before the break, and by
+rule, a starter who pitches that game isn't eligible to also pitch in
+the All-Star Game, regardless of how good his season has been. Boston's
+Sonny Gray is the more straightforward case: healthy, 10-1, a 2.61 ERA,
+and left off anyway on a crowded pitching staff, though a Red Sox
+teammate's injury (Ranger Suarez, to the IL) has already put him in the
+conversation for a roster spot before the game is played. Tampa Bay's
+Jonathan Aranda, similarly, appears to be simply squeezed out on a Rays
+roster that already sent Junior Caminero and Yandy Díaz.
+
+None of this is a scandal. Roster spots are limited, some of the best
+staffs in baseball only get to send two or three of their own, injuries
+take real players out of contention regardless of how they're hitting,
+and a system built partly on fan enthusiasm and storylines was never
+going to perfectly match a system built purely on this year's stat line.
+The interesting part isn't that the two systems disagree sometimes;
+it's being able to point at exactly where, why, and by how much.
+
+::: {.callout-note}
+This post uses Quarto's frozen execution (`freeze: auto`): the numbers
+above reflect `mlb_season_stats`'s snapshot as of whenever this was last
+rendered locally, not a live query on every page load. The underlying
+tables append a new snapshot daily rather than overwriting, so the same
+query run again next week will reflect that day's standings instead.
+:::
