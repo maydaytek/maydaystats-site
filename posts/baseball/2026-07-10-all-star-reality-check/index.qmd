@@ -115,15 +115,24 @@ Two lists: OPS leaders (minimum 150 plate appearances) and ERA leaders
 #| label: fig-al-ops-leaders
 #| fig-cap: "AL OPS leaders and All-Star status"
 import matplotlib.pyplot as plt
+from matplotlib.patches import Patch
 
 al_bat = batting[batting["league_name"] == "AL"].head(12).iloc[::-1]
 colors = ["#2c3e50" if s != "Not selected" else "#c0392b" for s in al_bat["selection"]]
+legend_handles = [
+    Patch(color="#2c3e50", label="On an All-Star roster"),
+    Patch(color="#c0392b", label="Not selected"),
+]
 
-fig, ax = plt.subplots(figsize=(8, 6))
+fig, ax = plt.subplots(figsize=(8, 6.5))
 ax.barh(al_bat["player_name"], al_bat["ops"], color=colors)
 ax.set_xlabel("OPS")
 ax.set_title("AL OPS Leaders (min. 150 PA)")
 ax.spines[["top", "right"]].set_visible(False)
+ax.legend(
+    handles=legend_handles, loc="upper center", bbox_to_anchor=(0.5, -0.1),
+    ncol=2, frameon=False,
+)
 plt.tight_layout()
 plt.show()
 ```
@@ -134,11 +143,15 @@ plt.show()
 nl_bat = batting[batting["league_name"] == "NL"].head(12).iloc[::-1]
 colors = ["#2c3e50" if s != "Not selected" else "#c0392b" for s in nl_bat["selection"]]
 
-fig, ax = plt.subplots(figsize=(8, 6))
+fig, ax = plt.subplots(figsize=(8, 6.5))
 ax.barh(nl_bat["player_name"], nl_bat["ops"], color=colors)
 ax.set_xlabel("OPS")
 ax.set_title("NL OPS Leaders (min. 150 PA)")
 ax.spines[["top", "right"]].set_visible(False)
+ax.legend(
+    handles=legend_handles, loc="upper center", bbox_to_anchor=(0.5, -0.1),
+    ncol=2, frameon=False,
+)
 plt.tight_layout()
 plt.show()
 ```
