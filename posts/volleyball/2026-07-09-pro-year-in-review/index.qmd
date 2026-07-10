@@ -49,6 +49,8 @@ LIMIT 10
 """
 
 leaders = client.query(query).to_dataframe()
+leaders = leaders.reset_index(drop=True)
+leaders.index += 1
 leaders
 ```
 
@@ -149,6 +151,8 @@ LIMIT 5
 """
 
 standings = client.query(standings_query).to_dataframe()
+standings = standings.reset_index(drop=True)
+standings.index += 1
 standings
 ```
 
@@ -186,6 +190,8 @@ seed_re = re.compile(r"^No\.\s*\d+\s+")
 for col in ("first_team_name", "second_team_name"):
     playoffs[col] = playoffs[col].str.replace(seed_re, "", regex=True)
 
+playoffs = playoffs.reset_index(drop=True)
+playoffs.index += 1
 playoffs
 ```
 
@@ -214,6 +220,8 @@ WHERE schedule_event_id = 637
 GROUP BY team
 """
 semifinal_team_totals = client.query(semifinal_query).to_dataframe()
+semifinal_team_totals = semifinal_team_totals.reset_index(drop=True)
+semifinal_team_totals.index += 1
 semifinal_team_totals
 ```
 
@@ -236,6 +244,8 @@ WHERE schedule_event_id = 637
   AND player_name IN ('Leketor Member-Meneh', 'Janice Leao')
 """
 semifinal_players = client.query(semifinal_players_query).to_dataframe()
+semifinal_players = semifinal_players.reset_index(drop=True)
+semifinal_players.index += 1
 semifinal_players
 ```
 
@@ -260,6 +270,8 @@ ORDER BY points DESC
 LIMIT 5
 """
 final_box = client.query(final_query).to_dataframe()
+final_box = final_box.reset_index(drop=True)
+final_box.index += 1
 final_box
 ```
 

@@ -43,6 +43,8 @@ LIMIT 10
 """
 
 scorers = client.query(query).to_dataframe()
+scorers = scorers.reset_index(drop=True)
+scorers.index += 1
 scorers
 ```
 
@@ -92,6 +94,8 @@ LIMIT 5
 """
 
 standings = client.query(standings_query).to_dataframe()
+standings = standings.reset_index(drop=True)
+standings.index += 1
 standings
 ```
 
@@ -118,6 +122,8 @@ GROUP BY game_id, team
 ORDER BY game_id, team
 """
 col_series = client.query(col_series_query).to_dataframe()
+col_series = col_series.reset_index(drop=True)
+col_series.index += 1
 col_series
 ```
 
@@ -138,6 +144,8 @@ WHERE game_id IN (2025030321, 2025030322, 2025030323, 2025030324)
 ORDER BY game_id, team
 """
 goalies = client.query(goalie_query).to_dataframe()
+goalies = goalies.reset_index(drop=True)
+goalies.index += 1
 goalies
 ```
 
@@ -163,6 +171,8 @@ WHERE player_name = 'N. MacKinnon' AND team = 'COL'
   AND game_id IN (2025030321, 2025030322, 2025030323, 2025030324)
 """
 mackinnon_series = client.query(mackinnon_query).to_dataframe()
+mackinnon_series = mackinnon_series.reset_index(drop=True)
+mackinnon_series.index += 1
 mackinnon_series
 ```
 
@@ -201,6 +211,8 @@ ORDER BY game_date
 """
 
 final = client.query(final_query).to_dataframe()
+final = final.reset_index(drop=True)
+final.index += 1
 final
 ```
 

@@ -35,6 +35,8 @@ ORDER BY n_pitches DESC
 """
 
 df = client.query(query).to_dataframe()
+df = df.reset_index(drop=True)
+df.index += 1
 df
 ```
 

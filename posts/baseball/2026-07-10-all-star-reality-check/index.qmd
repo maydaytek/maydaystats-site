@@ -171,14 +171,16 @@ top_elected = elected.head(5)
 ```
 
 Start with the good news. `{python} len(elected)` of the 18 elected
-position-player starters show up in the top 15 of their league in OPS -
+position-player starters show up in the top 15 of their league in OPS,
 a solid hit rate for a system built on votes rather than end-of-July
 stat lines. The clearest examples that fans got exactly right:
 
 ```{python}
 #| label: tbl-top-starters
 #| tbl-cap: "Elected starters ranking near the top of their league in OPS"
-top_elected[["player_name", "team_name", "league_name", "homeRuns", "ops", "avg"]]
+top_starters_tbl = top_elected[["player_name", "team_name", "league_name", "homeRuns", "ops", "avg"]].reset_index(drop=True)
+top_starters_tbl.index += 1
+top_starters_tbl
 ```
 
 Yordan Alvarez leads the entire AL in OPS, and Juan Soto leads the entire
@@ -226,10 +228,10 @@ fan vote) didn't land on the best hitter at the position this year.
 harper = batting_all[batting_all["player_name"] == "Bryce Harper"].iloc[0]
 ```
 
-Commissioner Rob Manfred's "Legend Pick" is explicitly not a merit
-selection: it's a one-per-league exception for a notable veteran,
-independent of this year's stats. The two picks this year show why that
-exception is worth having, for two very different reasons.
+Commissioner Rob Manfred's "Legend Pick" is a one-per-league honor for
+a notable veteran, granted independent of this year's stats rather than
+as a reward for them. The two picks this year show why that exception
+is worth having, for two very different reasons.
 
 Philadelphia's Bryce Harper got the NL nod, and it's worth noting he
 barely needed it: at `{python} f"{harper['ops']:.3f}"` OPS with
@@ -256,17 +258,21 @@ Young winner, exactly the case the rule was written for.
 ```{python}
 #| label: tbl-batting-snubs
 #| tbl-cap: "League OPS leaders not on any All-Star roster"
-batting[batting["selection"] == "Not selected"][
+batting_snubs_tbl = batting[batting["selection"] == "Not selected"][
     ["player_name", "team_name", "league_name", "homeRuns", "ops", "avg"]
-]
+].reset_index(drop=True)
+batting_snubs_tbl.index += 1
+batting_snubs_tbl
 ```
 
 ```{python}
 #| label: tbl-pitching-snubs
 #| tbl-cap: "League ERA leaders not on any All-Star roster"
-pitching[pitching["selection"] == "Not selected"][
+pitching_snubs_tbl = pitching[pitching["selection"] == "Not selected"][
     ["player_name", "team_name", "league_name", "era", "strikeOuts", "whip", "wins"]
-]
+].reset_index(drop=True)
+pitching_snubs_tbl.index += 1
+pitching_snubs_tbl
 ```
 
 A caveat before reading anything into these tables: our pipeline tracks
@@ -277,7 +283,7 @@ actually means. Checked individually:
 Chicago's Munetaka Murakami ranks third in the entire AL in OPS, but
 he's been out since May 29 with a grade 2 hamstring strain and only
 returned to the active roster today, with his first game back not until
-tomorrow: not a snub, just unavailable when the roster was set. The
+tomorrow, so he simply wasn't available when the roster was set. The
 NL's Ben Brown, third in ERA, is a cleaner version of the same story:
 he's been out with a neck stress reaction since late June and isn't
 expected back before late July at the earliest.
@@ -300,7 +306,8 @@ absences track health, not stats.
 The players who were genuinely healthy and still left off make a
 cleaner case. Philadelphia's Zack Wheeler, who
 [publicly called it "kind of BS"](https://www.foxsports.com/stories/mlb/phillies-zack-wheeler-2026-mlb-all-star-game),
-is fully healthy: his exclusion is a rule, not a merit judgment. He's
+is fully healthy. His exclusion comes down to a scheduling rule, unrelated
+to how he's pitched. He's
 scheduled to start Philadelphia's last game before the break, and by
 rule, a starter who pitches that game isn't eligible to also pitch in
 the All-Star Game, regardless of how good his season has been. Boston's
@@ -316,8 +323,8 @@ staffs in baseball only get to send two or three of their own, injuries
 take real players out of contention regardless of how they're hitting,
 and a system built partly on fan enthusiasm and storylines was never
 going to perfectly match a system built purely on this year's stat line.
-The interesting part isn't that the two systems disagree sometimes;
-it's being able to point at exactly where, why, and by how much.
+The interesting part is being able to point at exactly where, why, and
+by how much the two systems disagree.
 
 ::: {.callout-note}
 This post uses Quarto's frozen execution (`freeze: auto`): the numbers
