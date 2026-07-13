@@ -1,0 +1,666 @@
+---
+title: "First Half in Review: Hitting and Pitching Trends, Team Momentum, and the Reds"
+description: "How league-wide hitting and pitching have shifted since March, which teams are actually trending up or down heading into the second half, and a data-driven look at where Cincinnati's offense and pitching staff really stand."
+date: 2026-07-13
+categories: [Baseball, Featured, Season Recap]
+---
+
+Every team has now played most of its schedule, and with our
+[Statcast pipeline](/posts/baseball/2026-07-08-first-pitches/index.qmd)
+holding a full first half of pitch-level data (March 25 through July 12),
+and having just covered the
+[All-Star rosters themselves](/posts/baseball/2026-07-10-all-star-reality-check/index.qmd),
+it's a good moment to ask three broader questions: how has hitting and
+pitching around the league actually changed since Opening Day, which
+teams are genuinely trending up or down heading into the second half, and
+how do our own team's hitting and pitching numbers, the Cincinnati Reds,
+actually add up.
+
+## How the league has hit and pitched so far
+
+```{python}
+#| label: fetch-monthly-trends
+#| echo: true
+from google.cloud import bigquery
+import pandas as pd
+
+client = bigquery.Client()
+
+monthly_query = """
+SELECT
+  FORMAT_DATE('%Y-%m', CAST(game_date AS DATE)) AS month,
+  ROUND(SUM(woba_value)/SUM(woba_denom), 3) AS lg_woba,
+  ROUND(SAFE_DIVIDE(COUNTIF(events = 'strikeout'), COUNTIF(events IS NOT NULL)), 3) AS k_rate,
+  ROUND(SAFE_DIVIDE(COUNTIF(events = 'home_run'), COUNTIF(events IS NOT NULL)), 4) AS hr_rate,
+  ROUND(AVG(IF(pitch_type IN ('FF', 'SI'), release_speed, NULL)), 1) AS avg_fastball_velo,
+  ROUND(SAFE_DIVIDE(COUNTIF(description IN ('swinging_strike', 'swinging_strike_blocked')), COUNTIF(description IS NOT NULL)), 3) AS whiff_rate
+FROM `maydaystats.mlb_statcast.pitches`
+WHERE game_type = 'R'
+GROUP BY month
+ORDER BY month
+"""
+
+monthly = client.query(monthly_query).to_dataframe()
+monthly_tbl = monthly.reset_index(drop=True)
+monthly_tbl.index += 1
+monthly_tbl
+```
+
+```{python}
+#| label: fig-hr-rate-by-month
+#| fig-cap: "League-wide home run rate per plate appearance, by month"
+import matplotlib.pyplot as plt
+
+fig, ax = plt.subplots(figsize=(8, 5))
+ax.bar(monthly["month"], monthly["hr_rate"], color="#2c3e50")
+ax.set_xlabel("Month")
+ax.set_ylabel("Home runs per plate appearance")
+ax.set_title("League HR Rate by Month, 2026 First Half")
+ax.spines[["top", "right"]].set_visible(False)
+plt.tight_layout()
+plt.show()
+```
+
+A couple of these columns are worth defining before going further. wOBA
+(weighted on-base average) is the rate stat used throughout this post
+instead of batting average or OPS, because it assigns each outcome, a
+walk, a single, a double, a home run, and so on, its actual measured run
+value rather than treating every hit the same way or adding two
+differently-scaled numbers together. A .330 wOBA is roughly league
+average; anything north of .370 is excellent. Whiff rate is simply the
+share of pitches a hitter swings at and misses entirely, a proxy for how
+often pitchers are missing bats regardless of the final result.
+
+With those defined, the league-wide numbers tell a fairly consistent
+story as the season has warmed up: home run rate has climbed from 2.8%
+of plate appearances in March to 3.5% in July, a jump of roughly a
+quarter, and wOBA has followed the same direction, up from .317 to
+.332. Strikeout rate has eased at the same time, down from 24.4% to
+22.1%. The pitching side of the ledger hasn't moved much to explain
+that: average fastball velocity has held steady around 94.5 mph all
+season, and whiff rate has barely budged (11.9% in March, 10.8% in
+July). Pitchers aren't
+throwing softer or missing fewer bats; hitters are simply doing more
+damage on the contact they were already making. Two things typically get
+credited for that, and this data can't cleanly separate them: the ball
+carries better in warmer summer air, and hitters are also just more
+locked in by June and July, with a few extra months of live at-bats to
+groove their timing against pitching they've now often seen once
+already. None of this is unique to this season, but it's a useful
+reminder that
+stats collected in April and stats collected in July aren't quite the
+same measurement, which matters for the next question: which individual
+hitters and pitchers are actually trending, separate from that
+league-wide drift.
+
+```{python}
+#| label: fetch-batter-movers
+#| echo: true
+movers_query = """
+WITH pa AS (
+  SELECT
+    batter,
+    CAST(game_date AS DATE) AS game_date,
+    woba_value, woba_denom
+  FROM `maydaystats.mlb_statcast.pitches`
+  WHERE game_type = 'R' AND woba_denom IS NOT NULL
+),
+max_date AS (SELECT MAX(game_date) AS d FROM pa),
+splits AS (
+  SELECT
+    batter,
+    SUM(IF(game_date < DATE_SUB((SELECT d FROM max_date), INTERVAL 45 DAY), woba_value, 0)) AS early_val,
+    SUM(IF(game_date < DATE_SUB((SELECT d FROM max_date), INTERVAL 45 DAY), woba_denom, 0)) AS early_pa,
+    SUM(IF(game_date >= DATE_SUB((SELECT d FROM max_date), INTERVAL 45 DAY), woba_value, 0)) AS recent_val,
+    SUM(IF(game_date >= DATE_SUB((SELECT d FROM max_date), INTERVAL 45 DAY), woba_denom, 0)) AS recent_pa
+  FROM pa
+  GROUP BY batter
+)
+SELECT
+  b.player_name, b.team_name,
+  s.early_pa, ROUND(s.early_val / s.early_pa, 3) AS early_woba,
+  s.recent_pa, ROUND(s.recent_val / s.recent_pa, 3) AS recent_woba,
+  ROUND(s.recent_val / s.recent_pa - s.early_val / s.early_pa, 3) AS woba_delta
+FROM splits s
+JOIN `maydaystats.mlb_season_stats.batting_latest` b ON b.player_id = s.batter
+WHERE s.early_pa >= 100 AND s.recent_pa >= 100
+ORDER BY woba_delta DESC
+"""
+
+movers = client.query(movers_query).to_dataframe()
+risers = movers.head(5).reset_index(drop=True)
+risers.index += 1
+fallers = movers.tail(5).sort_values("woba_delta").reset_index(drop=True)
+fallers.index += 1
+```
+
+Splitting each qualified hitter's plate appearances into "before the last
+45 days" and "the last 45 days" isolates real in-season swings from that
+seasonal drift. The clearest risers:
+
+```{python}
+#| label: tbl-batter-risers
+#| tbl-cap: "Biggest wOBA gainers, early season vs. last 45 days (min. 100 PA in each window)"
+risers[["player_name", "team_name", "early_woba", "recent_woba", "woba_delta"]]
+```
+
+And the clearest decliners:
+
+```{python}
+#| label: tbl-batter-fallers
+#| tbl-cap: "Biggest wOBA decliners, early season vs. last 45 days (min. 100 PA in each window)"
+fallers[["player_name", "team_name", "early_woba", "recent_woba", "woba_delta"]]
+```
+
+The Cubs' Pete Crow-Armstrong tops the risers, and two names on the
+decliner list are worth pausing on: Atlanta's Drake Baldwin, the NL's
+elected starting catcher, is the single biggest decliner in baseball
+over this stretch, and Cleveland's Travis Bazzana, an AL player-elected
+pick, isn't far off that pace either, both All-Stars in our
+[earlier piece on the fan vote](/posts/baseball/2026-07-10-all-star-reality-check/index.qmd).
+That's not an argument against either selection; the vote reflects the
+season as a whole, and both still have real first halves behind them.
+It's just a sign of where each of them stands heading into the second
+half.
+
+The same split works just as well from the pitcher's side of the ball,
+using opponent wOBA (what a pitcher's batters have actually done against
+him) instead of a pitcher's own wOBA. Starters and relievers are shown
+separately below, since the two roles face lineups differently (starters
+work through a batting order multiple times, relievers usually face it
+once) and mixing them together makes both lists harder to read.
+
+```{python}
+#| label: fetch-pitcher-movers
+#| echo: true
+pitcher_movers_query = """
+WITH pa AS (
+  SELECT
+    pitcher,
+    CAST(game_date AS DATE) AS game_date,
+    woba_value, woba_denom
+  FROM `maydaystats.mlb_statcast.pitches`
+  WHERE game_type = 'R' AND woba_denom IS NOT NULL
+),
+max_date AS (SELECT MAX(game_date) AS d FROM pa),
+splits AS (
+  SELECT
+    pitcher,
+    SUM(IF(game_date < DATE_SUB((SELECT d FROM max_date), INTERVAL 45 DAY), woba_value, 0)) AS early_val,
+    SUM(IF(game_date < DATE_SUB((SELECT d FROM max_date), INTERVAL 45 DAY), woba_denom, 0)) AS early_bf,
+    SUM(IF(game_date >= DATE_SUB((SELECT d FROM max_date), INTERVAL 45 DAY), woba_value, 0)) AS recent_val,
+    SUM(IF(game_date >= DATE_SUB((SELECT d FROM max_date), INTERVAL 45 DAY), woba_denom, 0)) AS recent_bf
+  FROM pa
+  GROUP BY pitcher
+)
+SELECT
+  p.player_name, p.team_name,
+  IF(SAFE_DIVIDE(p.gamesStarted, p.gamesPitched) >= 0.5, 'Starter', 'Reliever') AS role,
+  s.early_bf, ROUND(s.early_val / s.early_bf, 3) AS early_woba_against,
+  s.recent_bf, ROUND(s.recent_val / s.recent_bf, 3) AS recent_woba_against,
+  ROUND(s.recent_val / s.recent_bf - s.early_val / s.early_bf, 3) AS woba_against_delta
+FROM splits s
+JOIN `maydaystats.mlb_season_stats.pitching_latest` p ON p.player_id = s.pitcher
+WHERE s.early_bf >= 60 AND s.recent_bf >= 60
+ORDER BY woba_against_delta ASC
+"""
+
+pitcher_movers = client.query(pitcher_movers_query).to_dataframe()
+cols = ["player_name", "team_name", "early_woba_against", "recent_woba_against", "woba_against_delta"]
+
+starters = pitcher_movers[pitcher_movers["role"] == "Starter"].sort_values("woba_against_delta")
+starter_movers = pd.concat([starters.head(4), starters.tail(4)])[cols].reset_index(drop=True)
+starter_movers.index += 1
+
+relievers = pitcher_movers[pitcher_movers["role"] == "Reliever"].sort_values("woba_against_delta")
+reliever_movers = pd.concat([relievers.head(4), relievers.tail(4)])[cols].reset_index(drop=True)
+reliever_movers.index += 1
+```
+
+Starters, biggest opponent-wOBA improvers and decliners:
+
+```{python}
+#| label: tbl-starter-movers
+#| tbl-cap: "Starters: biggest opponent-wOBA swings, early season vs. last 45 days (min. 60 batters faced in each window)"
+starter_movers
+```
+
+Relievers, the same split:
+
+```{python}
+#| label: tbl-reliever-movers
+#| tbl-cap: "Relievers: biggest opponent-wOBA swings, early season vs. last 45 days (min. 60 batters faced in each window)"
+reliever_movers
+```
+
+Two names on the starter improvers list are worth flagging now, because
+they show up again in the next section: Detroit's Jack Flaherty and
+Miami's Eury Pérez have both cut real ground off their opponent wOBA,
+and both of their teams are about to turn up as the two clearest hot
+streaks in baseball.
+
+## Which teams are trending, and is any of it real
+
+Records can move for two different reasons: a team is genuinely playing
+better or worse baseball, or the same underlying performance is just
+running into better or worse luck. Splitting each team's early season
+from its last 45 days, the same way as the hitters above, and pairing
+the win rate with the underlying offensive and pitching quality (wOBA
+for and against), separates the two.
+
+```{python}
+#| label: fetch-team-trend
+#| echo: true
+team_trend_query = """
+WITH games AS (
+  SELECT
+    game_pk,
+    CAST(ANY_VALUE(game_date) AS DATE) AS game_date,
+    ANY_VALUE(home_team) AS home_team,
+    ANY_VALUE(away_team) AS away_team,
+    MAX(post_home_score) AS home_final,
+    MAX(post_away_score) AS away_final
+  FROM `maydaystats.mlb_statcast.pitches`
+  WHERE game_type = 'R'
+  GROUP BY game_pk
+),
+team_games AS (
+  SELECT game_pk, game_date, home_team AS team,
+    IF(home_final > away_final, 1, 0) AS win
+  FROM games
+  UNION ALL
+  SELECT game_pk, game_date, away_team AS team,
+    IF(away_final > home_final, 1, 0) AS win
+  FROM games
+),
+max_date AS (SELECT MAX(game_date) AS d FROM team_games),
+records AS (
+  SELECT
+    team,
+    ROUND(SAFE_DIVIDE(SUM(IF(game_date < DATE_SUB((SELECT d FROM max_date), INTERVAL 45 DAY), win, 0)),
+      SUM(IF(game_date < DATE_SUB((SELECT d FROM max_date), INTERVAL 45 DAY), 1, 0))), 3) AS early_wpct,
+    ROUND(SAFE_DIVIDE(SUM(IF(game_date >= DATE_SUB((SELECT d FROM max_date), INTERVAL 45 DAY), win, 0)),
+      SUM(IF(game_date >= DATE_SUB((SELECT d FROM max_date), INTERVAL 45 DAY), 1, 0))), 3) AS recent_wpct
+  FROM team_games
+  GROUP BY team
+),
+pa AS (
+  SELECT
+    CAST(game_date AS DATE) AS game_date,
+    IF(inning_topbot = 'Top', away_team, home_team) AS bat_team,
+    IF(inning_topbot = 'Top', home_team, away_team) AS pit_team,
+    woba_value, woba_denom
+  FROM `maydaystats.mlb_statcast.pitches`
+  WHERE game_type = 'R' AND woba_denom IS NOT NULL
+),
+max_pa_date AS (SELECT MAX(game_date) AS d FROM pa),
+off AS (
+  SELECT bat_team AS team,
+    ROUND(SAFE_DIVIDE(SUM(IF(game_date < DATE_SUB((SELECT d FROM max_pa_date), INTERVAL 45 DAY), woba_value, 0)),
+      SUM(IF(game_date < DATE_SUB((SELECT d FROM max_pa_date), INTERVAL 45 DAY), woba_denom, 0))), 3) AS off_early,
+    ROUND(SAFE_DIVIDE(SUM(IF(game_date >= DATE_SUB((SELECT d FROM max_pa_date), INTERVAL 45 DAY), woba_value, 0)),
+      SUM(IF(game_date >= DATE_SUB((SELECT d FROM max_pa_date), INTERVAL 45 DAY), woba_denom, 0))), 3) AS off_recent
+  FROM pa GROUP BY bat_team
+),
+def AS (
+  SELECT pit_team AS team,
+    ROUND(SAFE_DIVIDE(SUM(IF(game_date < DATE_SUB((SELECT d FROM max_pa_date), INTERVAL 45 DAY), woba_value, 0)),
+      SUM(IF(game_date < DATE_SUB((SELECT d FROM max_pa_date), INTERVAL 45 DAY), woba_denom, 0))), 3) AS def_early,
+    ROUND(SAFE_DIVIDE(SUM(IF(game_date >= DATE_SUB((SELECT d FROM max_pa_date), INTERVAL 45 DAY), woba_value, 0)),
+      SUM(IF(game_date >= DATE_SUB((SELECT d FROM max_pa_date), INTERVAL 45 DAY), woba_denom, 0))), 3) AS def_recent
+  FROM pa GROUP BY pit_team
+)
+SELECT
+  r.team, r.early_wpct, r.recent_wpct,
+  ROUND(r.recent_wpct - r.early_wpct, 3) AS wpct_delta,
+  o.off_early, o.off_recent, ROUND(o.off_recent - o.off_early, 3) AS off_delta,
+  d.def_early, d.def_recent, ROUND(d.def_recent - d.def_early, 3) AS def_delta
+FROM records r
+JOIN off o ON o.team = r.team
+JOIN def d ON d.team = r.team
+ORDER BY wpct_delta DESC
+"""
+
+team_trend = client.query(team_trend_query).to_dataframe()
+
+TEAM_NAMES = {
+    "ATH": "Athletics", "ATL": "Atlanta Braves", "AZ": "Arizona Diamondbacks",
+    "BAL": "Baltimore Orioles", "BOS": "Boston Red Sox", "CHC": "Chicago Cubs",
+    "CIN": "Cincinnati Reds", "CLE": "Cleveland Guardians", "COL": "Colorado Rockies",
+    "CWS": "Chicago White Sox", "DET": "Detroit Tigers", "HOU": "Houston Astros",
+    "KC": "Kansas City Royals", "LAA": "Los Angeles Angels", "LAD": "Los Angeles Dodgers",
+    "MIA": "Miami Marlins", "MIL": "Milwaukee Brewers", "MIN": "Minnesota Twins",
+    "NYM": "New York Mets", "NYY": "New York Yankees", "PHI": "Philadelphia Phillies",
+    "PIT": "Pittsburgh Pirates", "SD": "San Diego Padres", "SEA": "Seattle Mariners",
+    "SF": "San Francisco Giants", "STL": "St. Louis Cardinals", "TB": "Tampa Bay Rays",
+    "TEX": "Texas Rangers", "TOR": "Toronto Blue Jays", "WSH": "Washington Nationals",
+}
+team_trend["team_name"] = team_trend["team"].map(TEAM_NAMES)
+
+movers_teams = pd.concat([team_trend.head(5), team_trend.tail(5)])
+```
+
+```{python}
+#| label: fig-team-wpct-swing
+#| fig-cap: "Biggest win-rate swings, early season vs. last 45 days"
+fig, ax = plt.subplots(figsize=(8, 6))
+plot_teams = movers_teams.iloc[::-1]
+colors = ["#2c3e50" if v > 0 else "#c0392b" for v in plot_teams["wpct_delta"]]
+ax.barh(plot_teams["team_name"], plot_teams["wpct_delta"], color=colors)
+ax.set_xlabel("Win rate change (recent 45 days minus early season)")
+ax.set_title("Biggest Team Win-Rate Swings")
+ax.spines[["top", "right"]].set_visible(False)
+ax.axvline(0, color="#888888", linewidth=0.8)
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+#| label: tbl-team-trend
+#| tbl-cap: "Win rate, offensive wOBA, and opponent wOBA allowed (pitching) trend for the biggest movers"
+trend_tbl = movers_teams[["team_name", "wpct_delta", "off_delta", "def_delta"]].rename(
+    columns={"off_delta": "batting_woba_delta", "def_delta": "pitching_woba_allowed_delta"}
+).reset_index(drop=True)
+trend_tbl.index += 1
+trend_tbl
+```
+
+Miami and Detroit are the two clearest hot streaks backed by real
+substance, not just a stretch of good luck. Miami's win rate has jumped
+from .456 to .650 over the last 45 days, driven mostly by a real gain in
+team batting wOBA, with Eury Pérez's improvement from the last section
+doing its part on the mound too. Detroit's climb from .393 to .550 is
+just as real, and backed on both sides of the ball: batting wOBA up, and
+less wOBA allowed by the pitching staff, with Jack Flaherty leading that
+charge. Atlanta sits at the other end: a win rate that fell from .661
+down to .462, matched by real decline in both their hitting and their
+pitching.
+
+Cincinnati and San Diego both show declines where the win rate moved
+further than the underlying numbers would suggest, which is a sign that
+some of the drop is bad sequencing rather than the whole roster
+suddenly playing worse. For the Reds, that's worth a full section of its
+own; for San Diego, the driver looks specifically like the pitching
+staff, whose opponent wOBA allowed climbed sharply even as the offense
+actually improved.
+
+## A closer look at the Reds
+
+```{python}
+#| label: fetch-reds-standings
+#| echo: true
+standings_query = """
+WITH games AS (
+  SELECT
+    game_pk,
+    ANY_VALUE(home_team) AS home_team,
+    ANY_VALUE(away_team) AS away_team,
+    MAX(post_home_score) AS home_final,
+    MAX(post_away_score) AS away_final
+  FROM `maydaystats.mlb_statcast.pitches`
+  WHERE game_type = 'R'
+  GROUP BY game_pk
+),
+team_games AS (
+  SELECT home_team AS team, IF(home_final > away_final, 1, 0) AS win FROM games
+  UNION ALL
+  SELECT away_team AS team, IF(away_final > home_final, 1, 0) AS win FROM games
+)
+SELECT team, COUNT(*) AS games, SUM(win) AS wins, COUNT(*) - SUM(win) AS losses,
+  ROUND(SAFE_DIVIDE(SUM(win), COUNT(*)), 3) AS win_pct
+FROM team_games
+WHERE team IN ('MIL', 'CHC', 'STL', 'PIT', 'CIN')
+GROUP BY team
+ORDER BY win_pct DESC
+"""
+
+standings = client.query(standings_query).to_dataframe()
+standings["team"] = standings["team"].map(TEAM_NAMES)
+standings_tbl = standings.reset_index(drop=True)
+standings_tbl.index += 1
+standings_tbl
+```
+
+The Reds go into the break in last place in the NL Central, nine games
+under .500. Before getting into why, it's worth checking the most basic
+question directly: how many runs has this team actually been scoring
+and allowing.
+
+```{python}
+#| label: fetch-reds-runs
+#| echo: true
+runs_query = """
+WITH games AS (
+  SELECT
+    game_pk,
+    CAST(ANY_VALUE(game_date) AS DATE) AS game_date,
+    ANY_VALUE(home_team) AS home_team,
+    ANY_VALUE(away_team) AS away_team,
+    MAX(post_home_score) AS home_final,
+    MAX(post_away_score) AS away_final
+  FROM `maydaystats.mlb_statcast.pitches`
+  WHERE game_type = 'R'
+  GROUP BY game_pk
+),
+team_games AS (
+  SELECT game_pk, game_date, home_team AS team, home_final AS runs_scored, away_final AS runs_allowed FROM games
+  UNION ALL
+  SELECT game_pk, game_date, away_team AS team, away_final AS runs_scored, home_final AS runs_allowed FROM games
+),
+max_date AS (SELECT MAX(game_date) AS d FROM team_games)
+SELECT
+  team,
+  ROUND(SUM(runs_scored) / COUNT(*), 2) AS rpg_season,
+  ROUND(SUM(runs_allowed) / COUNT(*), 2) AS runs_allowed_pg_season,
+  ROUND(SAFE_DIVIDE(SUM(IF(game_date >= DATE_SUB((SELECT d FROM max_date), INTERVAL 45 DAY), runs_scored, 0)),
+    SUM(IF(game_date >= DATE_SUB((SELECT d FROM max_date), INTERVAL 45 DAY), 1, 0))), 2) AS rpg_recent,
+  ROUND(SAFE_DIVIDE(SUM(IF(game_date >= DATE_SUB((SELECT d FROM max_date), INTERVAL 45 DAY), runs_allowed, 0)),
+    SUM(IF(game_date >= DATE_SUB((SELECT d FROM max_date), INTERVAL 45 DAY), 1, 0))), 2) AS runs_allowed_pg_recent
+FROM team_games
+GROUP BY team
+"""
+runs_all = client.query(runs_query).to_dataframe()
+lg_avg = runs_all["rpg_season"].mean()
+reds_runs = runs_all[runs_all["team"] == "CIN"].copy()
+reds_runs["team"] = "Cincinnati Reds"
+reds_runs_tbl = reds_runs.reset_index(drop=True)
+reds_runs_tbl.index += 1
+reds_runs_tbl
+```
+
+The Reds are averaging `{python} f"{reds_runs['rpg_season'].iloc[0]:.2f}"`
+runs a game for the season, against a league average of
+`{python} f"{lg_avg:.2f}"`, which puts them in the bottom third of
+baseball for scoring. That's not a recent development; it's been true
+most of the year. What has changed is the size of the gap: scoring
+dropped further over the last 45 days, down to
+`{python} f"{reds_runs['rpg_recent'].iloc[0]:.2f}"` runs a game, while
+runs allowed actually improved slightly, from
+`{python} f"{reds_runs['runs_allowed_pg_season'].iloc[0]:.2f}"` a game
+for the season to `{python} f"{reds_runs['runs_allowed_pg_recent'].iloc[0]:.2f}"`
+recently. In plain terms: this has been a below-average offense all
+year, not a good offense that collapsed, and pitching has quietly held
+up better than the win-loss record suggests.
+
+```{python}
+#| label: fetch-reds-hitters
+#| echo: true
+reds_hitters_query = """
+SELECT player_name, position, gamesPlayed, homeRuns, rbi,
+  CAST(avg AS FLOAT64) AS avg, CAST(obp AS FLOAT64) AS obp,
+  CAST(slg AS FLOAT64) AS slg, CAST(ops AS FLOAT64) AS ops, plateAppearances
+FROM `maydaystats.mlb_season_stats.batting_latest`
+WHERE team_name = 'Cincinnati Reds' AND plateAppearances >= 50
+ORDER BY ops DESC
+"""
+reds_hitters = client.query(reds_hitters_query).to_dataframe()
+reds_hitters_tbl = reds_hitters.reset_index(drop=True)
+reds_hitters_tbl.index += 1
+reds_hitters_tbl
+```
+
+JJ Bleday narrowly leads the everyday lineup in OPS (.846), just ahead
+of Elly De La Cruz (.839). The underlying contact data points to De La
+Cruz as the more dangerous hitter of the two, though: he produces the
+hardest, fastest contact on the entire roster, well clear of second
+place.
+
+```{python}
+#| label: fetch-reds-statcast
+#| echo: true
+reds_contact_query = """
+SELECT b.player_name,
+  ROUND(AVG(p.launch_speed), 1) AS avg_exit_velo,
+  ROUND(SAFE_DIVIDE(COUNTIF(p.launch_speed >= 95), COUNTIF(p.launch_speed IS NOT NULL)), 3) AS hard_hit_rate,
+  ROUND(AVG(p.bat_speed), 1) AS avg_bat_speed,
+  COUNT(p.launch_speed) AS batted_balls
+FROM `maydaystats.mlb_season_stats.batting_latest` b
+JOIN `maydaystats.mlb_statcast.pitches` p ON p.batter = b.player_id
+WHERE b.team_name = 'Cincinnati Reds' AND p.launch_speed IS NOT NULL AND p.game_type = 'R'
+GROUP BY b.player_name
+HAVING batted_balls >= 100
+ORDER BY avg_exit_velo DESC
+"""
+reds_contact = client.query(reds_contact_query).to_dataframe()
+reds_contact_tbl = reds_contact.reset_index(drop=True)
+reds_contact_tbl.index += 1
+reds_contact_tbl
+```
+
+That contact-quality table also surfaces the more useful story on this
+roster: a gap between how well some of these hitters are actually
+squaring up the ball and what their batting average says.
+
+```{python}
+#| label: fetch-reds-luck
+#| echo: true
+reds_luck_query = """
+SELECT b.player_name,
+  ROUND(AVG(p.estimated_ba_using_speedangle), 3) AS xba,
+  CAST(b.avg AS FLOAT64) AS actual_avg,
+  ROUND(CAST(b.avg AS FLOAT64) - AVG(p.estimated_ba_using_speedangle), 3) AS avg_minus_xba,
+  COUNT(*) AS batted_balls
+FROM `maydaystats.mlb_season_stats.batting_latest` b
+JOIN `maydaystats.mlb_statcast.pitches` p ON p.batter = b.player_id
+WHERE b.team_name = 'Cincinnati Reds'
+  AND p.estimated_ba_using_speedangle IS NOT NULL AND p.game_type = 'R'
+GROUP BY b.player_name, b.avg
+HAVING batted_balls >= 90
+ORDER BY avg_minus_xba ASC
+"""
+reds_luck = client.query(reds_luck_query).to_dataframe()
+reds_luck_tbl = reds_luck.head(5)[["player_name", "xba", "actual_avg", "avg_minus_xba"]].reset_index(drop=True)
+reds_luck_tbl.index += 1
+reds_luck_tbl
+```
+
+Ke'Bryan Hayes is the extreme case: Statcast's contact-quality model
+expects a .313 batting average from the way he's hitting the ball, and
+he's actually running a .143, the largest gap on the roster among
+players with a meaningful sample of batted balls. His exit velocity and
+hard-hit rate are both solidly average-or-better for this team; the
+results just haven't shown up yet. Elly De La Cruz carries a smaller
+version of the same gap (an expected .397 against an actual .274), which
+matters more here because his actual season is already excellent; if
+that gap closes at all, his results have real room to get even better.
+None of this guarantees a second-half turnaround, but it lines up with
+the team-wide finding from the last section: results that have fallen
+further than the process backing them up.
+
+```{python}
+#| label: fetch-reds-pitching
+#| echo: true
+reds_pitching_query = """
+SELECT player_name,
+  IF(SAFE_DIVIDE(gamesStarted, gamesPitched) >= 0.5, 'Starter', 'Reliever') AS role,
+  wins, losses, CAST(era AS FLOAT64) AS era, strikeOuts,
+  CAST(whip AS FLOAT64) AS whip, CAST(inningsPitched AS FLOAT64) AS ip
+FROM `maydaystats.mlb_season_stats.pitching_latest`
+WHERE team_name = 'Cincinnati Reds' AND CAST(inningsPitched AS FLOAT64) >= 20
+ORDER BY role, era ASC
+"""
+reds_pitching = client.query(reds_pitching_query).to_dataframe()
+reds_pitching_tbl = reds_pitching.reset_index(drop=True)
+reds_pitching_tbl.index += 1
+reds_pitching_tbl
+```
+
+Splitting by role clarifies who is actually holding the staff together.
+Among starters, Chase Burns is the headline: an 11-1 record and a 2.54
+ERA over 102.2 innings, averaging just under 95 mph with plus spin on
+his fastball, the profile of a legitimate front-of-rotation arm rather
+than a first-half surprise. Among relievers, Tejay Antone's 2.25 ERA is
+the clear standout. Beyond those two, both groups thin out quickly.
+
+The same early-vs-recent split used earlier in this post, applied to
+the Reds staff specifically, shows why that thinness matters more than
+any single number in the season table above.
+
+```{python}
+#| label: fetch-reds-pitching-trend
+#| echo: true
+reds_pitch_trend_query = """
+WITH pa AS (
+  SELECT
+    pitcher,
+    CAST(game_date AS DATE) AS game_date,
+    woba_value, woba_denom
+  FROM `maydaystats.mlb_statcast.pitches`
+  WHERE game_type = 'R' AND woba_denom IS NOT NULL
+),
+max_date AS (SELECT MAX(game_date) AS d FROM pa),
+splits AS (
+  SELECT
+    pitcher,
+    SUM(IF(game_date < DATE_SUB((SELECT d FROM max_date), INTERVAL 45 DAY), woba_value, 0)) AS early_val,
+    SUM(IF(game_date < DATE_SUB((SELECT d FROM max_date), INTERVAL 45 DAY), woba_denom, 0)) AS early_bf,
+    SUM(IF(game_date >= DATE_SUB((SELECT d FROM max_date), INTERVAL 45 DAY), woba_value, 0)) AS recent_val,
+    SUM(IF(game_date >= DATE_SUB((SELECT d FROM max_date), INTERVAL 45 DAY), woba_denom, 0)) AS recent_bf
+  FROM pa
+  GROUP BY pitcher
+)
+SELECT
+  p.player_name,
+  IF(SAFE_DIVIDE(p.gamesStarted, p.gamesPitched) >= 0.5, 'Starter', 'Reliever') AS role,
+  ROUND(SAFE_DIVIDE(s.early_val, s.early_bf), 3) AS early_woba_against,
+  ROUND(SAFE_DIVIDE(s.recent_val, s.recent_bf), 3) AS recent_woba_against
+FROM splits s
+JOIN `maydaystats.mlb_season_stats.pitching_latest` p ON p.player_id = s.pitcher
+WHERE p.team_name = 'Cincinnati Reds' AND s.early_bf >= 20 AND s.recent_bf >= 20
+ORDER BY role, recent_woba_against ASC
+"""
+reds_pitch_trend = client.query(reds_pitch_trend_query).to_dataframe()
+reds_pitch_trend_tbl = reds_pitch_trend.reset_index(drop=True)
+reds_pitch_trend_tbl.index += 1
+reds_pitch_trend_tbl
+```
+
+It's a mixed picture, not a uniform one. Tejay Antone and Brady Singer
+have both gotten better against opposing hitters recently, and Andrew
+Abbott has held steady. Chase Burns has actually seen his opponent wOBA
+rise somewhat over the last 45 days, still solid, just not quite as
+dominant as his season line suggests. The clearer problem is further
+down the staff: Rhett Lowder and Sam Moll have both gotten meaningfully
+worse against opposing hitters recently, and neither was especially
+strong to begin with. A rotation and bullpen this dependent on two
+pitchers performing at their best has less margin for error than a
+staff with the same season-long ERA spread more evenly.
+
+Put together, the Reds' first half looks less like a team that fell
+apart and more like a team that was already below average on offense,
+got worse there over the last 45 days, and has real pitching depth
+questions once you get past Burns and Antone. The individual talent is
+real (De La Cruz, Burns, Antone), and a couple of hitters, Hayes
+especially, look likely to see their results catch up to their contact
+quality. Whether that's enough to climb out of last place in the NL
+Central is a second-half question, but it will take more than better
+luck; the offense needs to actually produce more runs than it has all
+year, not just more than its recent stretch.
+
+::: {.callout-note}
+This post uses Quarto's frozen execution (`freeze: auto`): the numbers
+above reflect the Statcast and `mlb_season_stats` data as of whenever
+this was last rendered locally, not a live query on every page load.
+"Last 45 days" is calculated relative to the most recent game date in
+the pipeline at render time, not a fixed calendar date.
+:::
