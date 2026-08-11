@@ -2,7 +2,7 @@
 title: "Year in Review: The 2025-26 NCAA Men's Volleyball Season"
 description: "A full spring season of NCAA men's volleyball boxscore data, pulled through the self-hosted NCAA pipeline into BigQuery: the kills leaders, and how Hawaii beat UC Irvine for the national title."
 date: 2026-07-08
-categories: [Volleyball, Men's, Featured, Season Recap]
+categories: [Volleyball]
 ---
 
 The men's volleyball pipeline has now pulled a complete season: every

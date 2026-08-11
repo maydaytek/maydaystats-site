@@ -2,7 +2,7 @@
 title: "Year in Review: The 2025-26 MLV Season"
 description: "A full season of Major League Volleyball box scores, scraped from PDF scoresheets and parsed into BigQuery: the league's most productive hitter, and how the No. 2 seed knocked out an upset-minded No. 4 for the title."
 date: 2026-07-09
-categories: [Volleyball, Pro, Featured, Season Recap]
+categories: [Volleyball]
 ---
 
 The MLV pipeline is the odd one out on this site: every other pipeline

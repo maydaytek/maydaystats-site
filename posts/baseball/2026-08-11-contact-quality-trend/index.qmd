@@ -2,7 +2,7 @@
 title: "Contact Quality Has Been Falling Since Spring, and Whiffs Aren't the Reason"
 description: "Hard-hit rate and exit velocity have declined for months running, home run rate and wOBA cooled off after peaking in June, and whiff rate hasn't moved at all, a league-wide Statcast trend check through early August."
 date: 2026-08-11
-categories: [Baseball, Featured, Trend Watch]
+categories: [Baseball]
 ---
 
 Our [first-half review](/posts/baseball/2026-07-13-first-half-review/index.qmd)

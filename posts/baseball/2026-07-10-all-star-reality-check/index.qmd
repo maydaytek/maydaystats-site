@@ -2,7 +2,7 @@
 title: "Fan Vote vs. the Numbers: Grading the 2026 All-Star Rosters"
 description: "The starters are elected by fans, and that's fine. Here's who the stat lines say actually earned it."
 date: 2026-07-10
-categories: [Baseball, Featured, All-Star Game]
+categories: [Baseball]
 ---
 
 The 2026 All-Star Game is July 14 in Philadelphia, and the rosters are

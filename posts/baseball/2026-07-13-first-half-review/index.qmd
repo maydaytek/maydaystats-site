@@ -2,7 +2,7 @@
 title: "First Half in Review: Hitting and Pitching Trends, Team Momentum, and the Reds"
 description: "How league-wide hitting and pitching have shifted since March, which teams are actually trending up or down heading into the second half, and a data-driven look at where Cincinnati's offense and pitching staff really stand."
 date: 2026-07-13
-categories: [Baseball, Featured, Season Recap]
+categories: [Baseball]
 ---
 
 Every team has now played most of its schedule, and with our

@@ -2,7 +2,7 @@
 title: "Coursework Deep Dive: What Actually Predicts a Whiff"
 description: "A GRAD 505 (Purdue, Foundations in Data Science) project on 2.87 million MLB pitches from 2015-2018: hypothesis tests, a regression, and an ANOVA, and the same lesson repeated three times, statistical significance is cheap at this scale, effect size is not."
 date: 2026-06-16
-categories: [Baseball, Featured, Academic Project]
+categories: [Baseball, Featured Research]
 ---
 
 Everything else on this site runs through a live pipeline: a Cloud Run

@@ -2,7 +2,7 @@
 title: "Year in Review: The 2025 NCAA Women's Volleyball Season"
 description: "A full fall season of NCAA women's volleyball boxscore data, pulled through the self-hosted NCAA pipeline into BigQuery: Miami's two-way offensive season, Utah Valley's blocking wall, and how Texas A&M swept Kentucky for the national title."
 date: 2026-07-08
-categories: [Volleyball, Women's, Featured, Season Recap]
+categories: [Volleyball]
 ---
 
 The women's volleyball pipeline has now pulled a complete season: every

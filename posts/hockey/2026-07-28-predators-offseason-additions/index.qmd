@@ -2,7 +2,7 @@
 title: "What the Data Actually Says About Nashville's Offseason"
 description: "Four seasons of league-wide boxscore data, used to check what each of Nashville's new additions has actually produced rather than guess at what they'll do next."
 date: 2026-07-28
-categories: [Hockey, Featured, Offseason]
+categories: [Hockey]
 ---
 
 The Predators are my favorite team, so this one's personal, but the goal

@@ -2,7 +2,7 @@
 title: "Year in Review: The 2025-26 NHL Season"
 description: "A full season of NHL boxscore data, pulled through the hockey pipeline into BigQuery: the scoring race, the goaltending duels, and how the league's best regular-season team still didn't win it all."
 date: 2026-07-08
-categories: [Hockey, Featured, Season Recap]
+categories: [Hockey]
 ---
 
 The hockey pipeline has now pulled a complete season: every regular-season
